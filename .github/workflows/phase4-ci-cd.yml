@@ -1,0 +1,167 @@
+name: Phase 4 Self-Upgrade CI/CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      proposal_id:
+        description: 'Proposal ID to validate and merge'
+        required: true
+        type: string
+
+jobs:
+  validate-proposal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov
+          # Install all domain servers in editable mode
+          pip install -e ./packages/phase4-upgrade-pipeline
+          pip install -e ./packages/tau-core
+          pip install -e ./packages/proxmox-mcp-server
+          pip install -e ./packages/home-assistant-mcp-server
+          pip install -e ./packages/voice-mcp-server
+          pip install -e ./packages/memory-mcp-server
+          pip install -e ./packages/vision-mcp-server
+          pip install -e ./packages/security-mcp-server
+          pip install -e ./packages/fabrication-mcp-server
+          pip install -e ./packages/ui-bridge-mcp-server
+
+      # The test matrix that used to live here is gone, not moved (Phase 9). It duplicated
+      # ci.yml, which now runs every suite on every push and pull request - and it duplicated it
+      # badly: 7 of its 9 suites ended in `|| true` so they could not fail, robotics/utility/
+      # research were never listed at all, and `pytest phase4-upgrade-pipeline/tests` pointed at
+      # a directory that does not exist (the tests are at the package root). Lint and mypy were
+      # `|| true` too - a check that cannot fail is decoration.
+      #
+      # This workflow's actual job is the one thing ci.yml should not do: validate and deploy a
+      # specific approved proposal. Tests are a precondition it inherits from ci.yml having
+      # passed on the commit.
+      - name: Run the phase4 pipeline's own tests
+        run: |
+          pip install -e "./packages/phase4-upgrade-pipeline[dev]"
+          python -m pytest packages/phase4-upgrade-pipeline -q
+
+      - name: Validate proposal structure
+        run: |
+          python -c "
+          import json
+          from phase4_upgrade_pipeline.proposal_store import ProposalStore
+
+          store = ProposalStore('./data/proposals.json')
+          proposal = store.get_proposal('${{ github.event.inputs.proposal_id }}')
+
+          if not proposal:
+              raise ValueError('Proposal not found: ${{ github.event.inputs.proposal_id }}')
+
+          if not proposal.is_ready_to_merge():
+              raise ValueError(f'Proposal not ready to merge. Status: {proposal.status}')
+
+          print(f'✓ Proposal {proposal.id} ready to merge')
+          print(f'  Title: {proposal.title}')
+          print(f'  Approval status: {proposal.approval_status()}')
+          "
+
+  security-check:
+    runs-on: ubuntu-latest
+    needs: validate-proposal
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need main to diff the ruleset against
+
+      # Advisory on purpose, and the only `|| true` left in this file: these report on the whole
+      # tree, not on the proposal, and there is no triaged baseline - hard-failing them would
+      # block every deploy on pre-existing findings and teach everyone to ignore the job. The
+      # non-negotiable check is the next step, and that one fails hard.
+      - name: Run security scan (advisory)
+        run: |
+          pip install bandit safety
+          bandit -r packages/tau-core packages/phase4-upgrade-pipeline -f json -o bandit-report.json || true
+          safety check --json || true
+
+      # THE guarantee Phase 4 rests on: "Nothing touches the CDG ruleset itself through this
+      # pipeline - that file should require manual, out-of-band edits only" (project-tau-plan.md
+      # §7). This used to grep the ruleset for the string 'generated-by-phase-4', which only
+      # catches a change that politely labels itself; any other edit sailed through.
+      #
+      # The real invariant is simply that the file did not change on this branch, and that is
+      # exactly checkable. SecurityReviewer already blocks 'CDG' in a proposed diff - this is the
+      # backstop for when that judgement is wrong, so it must not rely on the same judgement.
+      - name: CDG ruleset must be byte-identical to main
+        run: |
+          if ! git diff --quiet origin/main -- packages/tau-core/config/cdg_rules.yaml; then
+            echo "::error::The CDG ruleset differs from main. It may only be changed by a manual,"
+            echo "::error::out-of-band edit - never through the self-upgrade pipeline. DENIED."
+            git diff origin/main -- packages/tau-core/config/cdg_rules.yaml
+            exit 1
+          fi
+          echo "CDG ruleset is unchanged from main."
+
+      - name: CDG ruleset still enforces its core rules
+        run: |
+          pip install -e ./packages/tau-core
+          python - <<'PY'
+          from pathlib import Path
+          from tau_core.cdg import CoreDirectiveGuard, Effect, load_rules
+
+          guard = CoreDirectiveGuard(load_rules(Path("packages/tau-core/config/cdg_rules.yaml")))
+          assert guard.evaluate("any-server", "edit_cdg_rules").effect is Effect.DENY
+          assert guard.evaluate("security-mcp-server", "exit_lockdown").effect is Effect.REQUIRE_APPROVAL
+          print("CDG ruleset integrity verified")
+          PY
+
+  build:
+    runs-on: ubuntu-latest
+    needs: security-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Build Docker images for domain servers
+        run: |
+          # This is a placeholder - in a real setup, you'd build and push to your registry
+          echo "Building domain server container images..."
+          # docker build -t tau-core:latest ./packages/tau-core
+          # docker build -t phase4-mcp:latest ./packages/phase4-upgrade-pipeline
+          # etc.
+          echo "✓ Build complete (placeholder)"
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update deployment manifest
+        run: |
+          # Placeholder for k3s deployment update
+          echo "Deploying to k3s cluster..."
+          # kubectl apply -f k3s/deployments/ --namespace=tau
+          echo "✓ Deployment initiated (placeholder)"
+
+      - name: Mark proposal as merged
+        run: |
+          python -c "
+          from phase4_upgrade_pipeline.proposal_store import ProposalStore
+          from datetime import datetime
+
+          store = ProposalStore('./data/proposals.json')
+          proposal = store.merge_proposal('${{ github.event.inputs.proposal_id }}')
+
+          print(f'✓ Proposal merged and recorded: {proposal.id}')
+          print(f'  Merged at: {proposal.merged_at}')
+          "

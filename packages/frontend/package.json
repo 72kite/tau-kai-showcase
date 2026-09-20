@@ -1,0 +1,35 @@
+{
+  "name": "tau-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:voice-match": "node scripts/test-voice-match.mjs",
+    "visual-check": "npm run build && node scripts/visual-check.mjs",
+    "visual-check:dark": "npm run build && node scripts/visual-check.mjs --theme dark",
+    "voice-behavior-check": "node scripts/voice-behavior-check.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-notification": "^2.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@testing-library/dom": "^9.3.4",
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^14.1.2",
+    "@vitejs/plugin-react": "^6.0.4",
+    "jsdom": "^22.1.0",
+    "playwright": "^1.61.1",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
+  }
+}

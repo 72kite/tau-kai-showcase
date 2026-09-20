@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tau-admin-server"
+version = "0.1.0"
+description = "Standalone admin control panel backend for Project Tau - separate sign-in, separate process, from the kiosk-facing bridge (Phase 38)"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.29",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.3",
+  "httpx>=0.27",
+  # Same KDF/password-hashing library as tau-core's crypto_store.py and the credential login
+  # itself - one dependency covers both.
+  "argon2-cffi>=23.1",
+  "cryptography>=42",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2",
+  "pytest-asyncio>=0.23",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tau_admin_server"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

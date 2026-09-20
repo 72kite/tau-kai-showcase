@@ -1,0 +1,38 @@
+[
+  {
+    "value" : "Charles, Ray",
+    "label" : "&lt;b&gt;Charles&lt;/b&gt;, Ray",
+    "kind" : "path"
+      , "path" : "Charles,_Ray"
+  },
+  {
+    "value" : "Live (Ray Charles)",
+    "label" : "Live (Ray &lt;b&gt;Charles&lt;/b&gt;)",
+    "kind" : "path"
+      , "path" : "Live_(Ray_Charles)"
+  },
+  {
+    "value" : "Ray Charles (album)",
+    "label" : "Ray &lt;b&gt;Charles&lt;/b&gt; (album)",
+    "kind" : "path"
+      , "path" : "Ray_Charles_(album)"
+  },
+  {
+    "value" : "Ray Charles Anthology",
+    "label" : "Ray &lt;b&gt;Charles&lt;/b&gt; Anthology",
+    "kind" : "path"
+      , "path" : "Ray_Charles_Anthology"
+  },
+  {
+    "value" : "Ray Charles discography",
+    "label" : "Ray &lt;b&gt;Charles&lt;/b&gt; discography",
+    "kind" : "path"
+      , "path" : "Ray_Charles_discography"
+  },
+  {
+    "value" : "charles ",
+    "label" : "containing &apos;charles&apos;...",
+    "kind" : "pattern"
+    
+  }
+]

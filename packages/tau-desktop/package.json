@@ -1,0 +1,13 @@
+{
+  "name": "tau-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tauri desktop shell for Tau (Phase 27.D) - wraps packages/frontend, does not fork it.",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

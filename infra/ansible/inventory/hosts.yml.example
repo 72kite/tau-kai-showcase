@@ -1,0 +1,33 @@
+# Copy to inventory/hosts.yml (gitignored) and fill in the IPs Terraform's outputs point at
+# (`terraform output k3s_server_vms` etc., then resolve VM ID -> IP via the Proxmox UI or your
+# DHCP server's lease list).
+all:
+  children:
+    proxmox_hosts:
+      hosts:
+        pve:
+          ansible_host: 192.0.2.1
+          ansible_user: root
+    k3s_servers:
+      hosts:
+        tau-k3s-server-1:
+          ansible_host: 192.0.2.11
+    k3s_agents:
+      hosts:
+        tau-k3s-agent-1:
+          ansible_host: 192.0.2.21
+        tau-k3s-agent-2:
+          ansible_host: 192.0.2.22
+    k3s_nodes:
+      children:
+        k3s_servers:
+        k3s_agents:
+    ollama_nodes:
+      hosts:
+        tau-ollama:
+          ansible_host: 192.0.2.31
+    # Piper/Whisper run as k3s Deployments (see ../k3s/voice/), but need enough disk for model
+    # caches and a node label the manifests' nodeSelector targets. Pick one k3s_agent for this.
+    voice_nodes:
+      hosts:
+        tau-k3s-agent-1:

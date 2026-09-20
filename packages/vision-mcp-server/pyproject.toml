@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vision-mcp-server"
+version = "0.1.0"
+description = "Vision MCP server for Project Tau — cameras, face detection, scene understanding"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.6.0,<2.0.0",
+    "opencv-python>=4.8.0",
+    "insightface>=0.7.3",
+    "onnxruntime>=1.16.0",
+    "pillow>=10.0.0",
+    "numpy>=1.24.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+    "python-osc>=1.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.23",
+]
+# Kinect v2 camera backend (kinect2_client.py, CAMERA_SOURCE=kinect2). Needs libfreenect2 built
+# and installed on the system FIRST (see docker/vision.Dockerfile) - this Cython wrapper compiles
+# against it at install time via LIBFREENECT2_INSTALL_PREFIX, it isn't a pure-Python package.
+#
+# Installed from git, not PyPI - found by actually running the build: the PyPI sdist for
+# pylibfreenect2 0.1.4 is missing pylibfreenect2/libfreenect2/libfreenect2.pxd (Cython fails
+# with "libfreenect2.pxd not found" trying to `cimport` it), a known packaging gap in that
+# release. The GitHub tree has the file. Pinned to a commit for the same reason libfreenect2
+# itself is pinned in the Dockerfile - this is unmaintained upstream (last real activity years
+# ago), not a "just take latest" dependency.
+kinect2 = [
+    "pylibfreenect2 @ git+https://github.com/r9y9/pylibfreenect2.git@40221e815c182ee31e8da33df717ccdef1bc615f",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

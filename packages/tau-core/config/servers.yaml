@@ -1,0 +1,164 @@
+# MCP server registry for Tau Core.
+#
+# Each entry describes how to reach one domain MCP server. This file is what a real running
+# deployment loads (see TauCoreSettings.servers_config_path), so it must contain ONLY real
+# domain servers - the echo/dangerous test-fixture servers live in servers.test.yaml instead.
+# Live testing (2026-07-10) showed models gravitating toward the `echo` tool unprompted when
+# the fixtures were registered here alongside the real servers.
+#
+# This is the local/non-Docker variant (stdio, subprocess per server). Running via
+# docker-compose.yml instead? See servers.docker.yaml (streamable_http, one container per
+# server) - point TAU_SERVERS_CONFIG_PATH at it.
+
+servers:
+  # Phase 2's first domain server (../home-assistant-mcp-server). `python -m ha_mcp_server.server`
+  # requires that package installed into whatever environment `command: python` resolves to -
+  # simplest for local dev is `pip install -e ../home-assistant-mcp-server` into this same .venv.
+  # HA_URL/HA_TOKEN live in that package's own .env (see its .env.example), not this one.
+  - name: home-assistant-mcp-server
+    transport: stdio
+    command: python
+    args: ["-m", "ha_mcp_server.server"]
+
+  # Phase 2's second domain server (../voice-mcp-server). Same "pip install -e" note as above.
+  # WHISPER_URL/PIPER_URI live in that package's own .env.
+  - name: voice-mcp-server
+    transport: stdio
+    command: python
+    args: ["-m", "voice_mcp_server.server"]
+
+  # Phase 2's third domain server (../memory-mcp-server). Same "pip install -e" note as above.
+  # MEMORY_DB_PATH/MEMORY_PROFILES_PATH default to a local ./data/ dir if unset.
+  - name: memory-mcp-server
+    transport: stdio
+    command: python
+    args: ["-m", "memory_mcp_server.server"]
+
+  # Phase 2.1's domain server (../proxmox-mcp-server). Same "pip install -e" note as above.
+  # PROXMOX_PASSWORD is required; other vars default to localhost setup.
+  - name: proxmox-mcp-server
+    transport: stdio
+    command: python
+    args: ["-m", "proxmox_mcp_server.server"]
+
+  # Phase 2.6's domain server (../security-mcp-server). Same "pip install -e" note as above.
+  # LOCKDOWN_APPROVAL_TOKEN is required; SECURITY_DB_PATH defaults to ./data/security.json.
+  - name: security-mcp-server
+    transport: stdio
+    command: python
+    args: ["-m", "security_mcp_server.server"]
+
+  # Phase 2.5's domain server (../vision-mcp-server). Same "pip install -e" note as above.
+  # CAMERA_SOURCE defaults to 0 (first USB camera). PTZ disabled by default.
+  # IMMICH_ENABLED dormant (disabled by default) — set to true + credentials to enable.
+  - name: vision-mcp-server
+    transport: stdio
+    command: python
+    args: ["-m", "vision_mcp_server.server"]
+
+  # Phase 2.7's domain server (../fabrication-mcp-server). Same "pip install -e" note as above.
+  # PRINTER_TYPE: octoprint or moonraker. Set credentials in .env.
+  - name: fabrication-mcp-server
+    transport: stdio
+    command: python
+    args: ["-m", "fabrication_mcp_server.server"]
+
+  # Phase 3's UI bridge server (../ui-bridge-mcp-server). Same "pip install -e" note as above.
+  # No external credentials needed — aggregates state from other servers.
+  - name: ui-bridge-mcp-server
+    transport: stdio
+    command: python
+    args: ["-m", "ui_bridge_mcp_server.server"]
+
+  # Phase 4's self-upgrade governance pipeline (../phase4-upgrade-pipeline).
+  # Tools: propose_change, get_proposal, list_proposals, user_override_proposal, merge_proposal, reject_proposal.
+  # PROPOSAL_DB_PATH defaults to ./data/proposals.json. REVIEW_MODEL defaults to qwen2.5:0.5b.
+  - name: phase4-mcp-server
+    transport: stdio
+    command: python
+    args: ["-m", "phase4_server"]
+
+  # Phase 5's domain server (../robotics-mcp-server). Same "pip install -e" note as above.
+  # ROBOT_TYPE: drone (default) or robot_dog (not yet implemented - see robot_dog_client.py).
+  # DRONE_API_URL/DRONE_API_KEY configure the flight-controller bridge. PATROL_ROUTES_PATH
+  # points at a human-edited JSON file of pre-approved routes (see config/patrol_routes.example.json);
+  # with no file present, no routes are available - patrol_route() rejects every name.
+  - name: robotics-mcp-server
+    transport: stdio
+    command: python
+    args: ["-m", "robotics_mcp_server.server"]
+
+  # Phase 6.B's utility server (../utility-mcp-server). Same "pip install -e" note as above.
+  # All tools are read-only (time/date, system status, self-knowledge), so no CDG rule is
+  # needed - they fall through to default_effect: allow. TAU_TIMEZONE optionally sets the
+  # reporting zone; get_system_status soft-imports tau_core.hardware if it shares the venv.
+  - name: utility-mcp-server
+    transport: stdio
+    command: python
+    args: ["-m", "utility_mcp_server.server"]
+
+  # Phase 8.A's research server (../research-mcp-server). Same "pip install -e" note as above.
+  # The ONLY server here that reads untrusted, third-party text - everything else talks to
+  # hardware the operator installed. Its tools are read-only (search/fetch), so they fall through
+  # to default_effect: allow; the CDG's job here is not to gate the reading, it is to gate what
+  # the model does *after* reading. SEARXNG_URL selects the self-hosted search backend (compose
+  # sets it; without it, search_web fails with an actionable message and fetch_page still works).
+  # Intended use is via spawn_subagent(task, servers=["research-mcp-server"]) - see the server's
+  # module docstring for why scoping is the real prompt-injection mitigation.
+  - name: research-mcp-server
+    transport: stdio
+    command: python
+    args: ["-m", "research_mcp_server.server"]
+
+  # Offline Wikipedia knowledge server (../wikipedia-mcp-server, added 2026-08-10). Same
+  # "pip install -e" note as above. Backed by a self-hosted Kiwix server (KIWIX_URL/
+  # KIWIX_ZIM_NAME - compose sets both); deliberately has no online-fetch tool of its own - see
+  # the package README for why it defers to research-mcp-server instead of duplicating one. Its
+  # tools are read-only (search/fetch a local snapshot), so they fall through to
+  # default_effect: allow, same as research-mcp-server above.
+  - name: wikipedia-mcp-server
+    transport: stdio
+    command: python
+    args: ["-m", "wikipedia_mcp_server.server"]
+
+  # Phase 31's git-hosting server (../forgejo-mcp-server, added 2026-09-04). Same "pip install -e"
+  # note as above. Wraps the private Forgejo instance stood up in Phase 28 (git.tau.home).
+  # FORGEJO_URL/FORGEJO_TOKEN/FORGEJO_OWNER live in that package's own .env. All tools are
+  # read-only except create_issue, which the CDG gates behind human approval (see cdg_rules.yaml's
+  # forgejo-create-issue-needs-approval rule).
+  - name: forgejo-mcp-server
+    transport: stdio
+    command: python
+    args: ["-m", "forgejo_mcp_server.server"]
+
+  # Phase 25's parametric CAD server - the first THIRD-PARTY MCP server in this registry, and the
+  # only one not written in this repo. https://github.com/fboldo/openscad-mcp-server (npm:
+  # openscad-mcp-server). Requires Node (npx); it renders via OpenSCAD WASM, so there is no
+  # OpenSCAD binary to install.
+  #
+  # Why this one, out of the eight CAD servers surveyed: it is TWO tools. The roster size is the
+  # measured bottleneck for tool selection (§8.25: 73 tools scored 13/37; scoping to ~3 servers'
+  # worth scored 27/37), so a server's tool count is a real cost, and the alternatives ran from
+  # 5 to 150+. It is also text-first, which suits an LLM, and fully headless.
+  #
+  # What it completes: Tau already drives 3D printers (fabrication-mcp-server) and already has a
+  # system-prompt section on engineering design, but that section dead-ended at an SVG on the
+  # kiosk screen - there was no path from "design a bracket" to a printable object. render_scad_png
+  # closes the loop by letting the model SEE its own output and correct it before exporting.
+  #
+  # Both tools are pure functions of their input (SCAD text in, image/STL out): they touch no
+  # hardware, allocate nothing, and persist nothing, so both fall through to CDG default_effect:
+  # allow. The approval gate that matters is unchanged and already exists one step later -
+  # fabrication-mcp-server.submit_print_job is require_approval, so nothing reaches the printer
+  # without a human.
+  - name: openscad-mcp-server
+    transport: stdio
+    command: npx
+    args: ["-y", "openscad-mcp-server", "--stdio"]
+
+  # Phase 38's stealth-browser-mcp is DELIBERATELY NOT registered here. Unlike every third-party
+  # server above, it isn't a one-line `npx -y ...`/pip-installable dependency - it needs a real
+  # Chrome + xvfb install (see its own Dockerfile), which is a Docker-shaped concern, not a local
+  # dev convenience. See servers.docker.yaml for the real registration (streamable_http, its own
+  # container) - this file stays stdio-only, and a fragile "assume it's cloned to some sibling
+  # path" entry here would be worse than no entry at all.

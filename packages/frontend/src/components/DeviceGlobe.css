@@ -1,0 +1,12 @@
+.device-globe-canvas {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+}
+
+.device-globe-canvas canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}

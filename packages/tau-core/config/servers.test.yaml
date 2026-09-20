@@ -1,0 +1,22 @@
+# Test-fixture MCP server registry - NOT for real deployments.
+#
+# Registers only tau-core's own example servers (examples/echo_mcp_server.py,
+# examples/dangerous_mcp_server.py), used to validate the host/CDG/approval plumbing end to end
+# without any real domain server installed. Kept separate from servers.yaml deliberately: a real
+# running bridge loads servers.yaml, and having these fixtures registered there put an
+# attractive-but-useless `echo` tool in front of the LLM in production.
+#
+# To run the manual smoke REPL against just these fixtures:
+#   TAU_SERVERS_CONFIG_PATH=config/servers.test.yaml python examples/chat_repl.py
+# (PowerShell: $env:TAU_SERVERS_CONFIG_PATH = "config/servers.test.yaml"; python examples/chat_repl.py)
+
+servers:
+  - name: echo
+    transport: stdio
+    command: python
+    args: ["examples/echo_mcp_server.py"]
+
+  - name: dangerous
+    transport: stdio
+    command: python
+    args: ["examples/dangerous_mcp_server.py"]

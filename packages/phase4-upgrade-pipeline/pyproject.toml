@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "phase4-upgrade-pipeline"
+version = "0.1.0"
+description = "Phase 4: Governed self-upgrade pipeline for Project Tau"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.6.0,<2.0.0",
+    "ollama>=0.1.0",
+    # Phase 10: encryption-at-rest for the proposal store (crypto_store.py).
+    "argon2-cffi>=23.1",
+    "cryptography>=42",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.setuptools]
+py-modules = ["phase4_server", "proposal_store", "reviewer_agents", "crypto_store"]

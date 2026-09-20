@@ -1,0 +1,40 @@
+# Terraform
+terraform/**/.terraform/
+terraform/**/.terraform.lock.hcl
+terraform/**/terraform.tfstate
+terraform/**/terraform.tfstate.backup
+terraform/**/terraform.tfvars
+terraform/**/*.auto.tfvars
+!terraform/**/terraform.tfvars.example
+terraform/**/crash.log
+
+# Ansible
+ansible/inventory/hosts.yml
+ansible/group_vars/all.yml
+ansible/group_vars/k3s_nodes.yml
+!ansible/inventory/hosts.yml.example
+!ansible/group_vars/*.yml.example
+ansible/*.retry
+
+# kubeconfig fetched from the k3s server
+k3s/kubeconfig
+*.kubeconfig
+
+# Vault
+vault/scripts/*.keys.json
+vault/scripts/*-unseal-keys*
+vault/scripts/*-root-token*
+*.unseal-keys
+*.root-token
+
+# Registry auth
+k3s/registry/htpasswd-secret.yaml
+!k3s/registry/htpasswd-secret.SAMPLE.yaml
+k3s/registry/htpasswd
+
+# Generic secret-shaped files
+*.env
+!*.env.example
+*.pem
+*.key
+!*.key.example

@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault
+  namespace: vault
+spec:
+  selector:
+    app: vault
+  ports:
+    - name: api
+      port: 8200
+      targetPort: 8200
+---
+# Headless service for Raft peer discovery / cluster_addr in configmap-vault-config.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault-internal
+  namespace: vault
+spec:
+  clusterIP: None
+  selector:
+    app: vault
+  ports:
+    - name: cluster
+      port: 8201
+      targetPort: 8201

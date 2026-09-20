@@ -1,0 +1,73 @@
+/* The far-bottom identity strip. The quietest element on the page by design: muted, small, and
+   borderless, so it reads as a margin note rather than a third bar of chrome competing with the
+   atom (6.F). Same restraint as .recall-hint in App.css. */
+
+.status-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  flex: 0 0 auto;
+  padding: 0.35em 0.9em;
+  background: var(--paper);
+  color: var(--muted);
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  /* A hairline, not the 2px rules the toolbar uses - this is a separation, not a division. */
+  border-top: 1px solid rgba(var(--ink-rgb), 0.15);
+  min-width: 0;
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  min-width: 0;
+}
+
+.footer-version,
+.footer-device {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Flex items default to min-width:auto (their content size), which defeats the ellipsis - a long
+     device name would push past the row's right edge instead of truncating. min-width:0 lets it
+     shrink so the ellipsis actually engages on a narrow phone. */
+  min-width: 0;
+}
+
+/* The build stamp is the part that actually identifies a deploy, but it's noise to a passer-by -
+   keep it present and dimmer rather than hiding it behind a hover nobody will try. */
+.footer-build {
+  /* Not opacity (2026-09-12): it composited --muted down to 2.52:1 against paper, under WCAG
+     AA's 4.5:1 floor - see index.css's --faint docstring. */
+  color: var(--faint);
+  margin-left: 0.15em;
+}
+
+/* Drift: this screen is serving an older bundle than the bridge is running (a cached PWA). Ink on
+   paper inverted so it reads as a real flag against a muted row, without introducing a colour the
+   e-ink palette doesn't have. */
+.footer-stale {
+  flex: 0 0 auto;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.1em 0.45em;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  cursor: help;
+}
+
+/* Device-token enforcement is off (Phase 27.A default, or an operator's deliberate choice) - same
+   treatment as .footer-stale: this palette has no separate "warning" colour, and inverting ink on
+   paper is already the loudest flag this row has. */
+.footer-unauthenticated {
+  flex: 0 0 auto;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.1em 0.45em;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  cursor: help;
+}

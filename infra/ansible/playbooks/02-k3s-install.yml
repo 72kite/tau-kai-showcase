@@ -1,0 +1,19 @@
+---
+# Installs k3s server first (captures the join token as a fact), then agents (join using that
+# fact from the server's hostvars). Also fetches kubeconfig to infra/k3s/kubeconfig so kubectl/
+# helm can be run from wherever the operator manages the cluster from.
+
+- name: Install k3s server node(s)
+  hosts: k3s_servers
+  become: true
+  roles:
+    - k3s_server
+
+- name: Install k3s agent node(s)
+  hosts: k3s_agents
+  become: true
+  vars:
+    k3s_server_address: "{{ hostvars[groups['k3s_servers'][0]]['ansible_host'] }}"
+    k3s_node_token: "{{ hostvars[groups['k3s_servers'][0]]['k3s_node_token'] }}"
+  roles:
+    - k3s_agent

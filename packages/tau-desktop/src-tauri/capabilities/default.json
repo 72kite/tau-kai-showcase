@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capability for the main window - core APIs plus notifications (Phase 27.D Milestone 4). Every earlier capability (global-shortcut, keychain commands, mDNS/pairing/proxy commands) is either driven entirely from Rust or an app-defined command, neither of which needs an ACL entry - this file exists solely because notification:default is the first plugin command called directly from JS.",
+  "windows": ["main"],
+  "permissions": ["core:default", "notification:default"]
+}

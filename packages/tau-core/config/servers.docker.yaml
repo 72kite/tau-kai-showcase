@@ -1,0 +1,93 @@
+# MCP server registry for Tau Core - Docker Compose variant of servers.yaml.
+#
+# The same domain servers as servers.yaml, but each is reached over the network (streamable_http) instead of
+# spawned as a local `python -m <package>.server` subprocess. Point TAU_SERVERS_CONFIG_PATH at
+# this file when running tau-core via ../../docker-compose.yml; plain servers.yaml (stdio)
+# stays the default for local, non-Docker dev - see that file's own comments.
+#
+# Host names below are docker-compose service names; every domain server binds container port
+# 8000 internally (FASTMCP_PORT=8000, set in docker-compose.yml) regardless of any host port
+# mapping compose adds for debugging. Path is FastMCP's default streamable_http_path, "/mcp".
+
+servers:
+  - name: home-assistant-mcp-server
+    transport: streamable_http
+    url: http://home-assistant-mcp-server:8000/mcp
+
+  - name: voice-mcp-server
+    transport: streamable_http
+    url: http://voice-mcp-server:8000/mcp
+
+  - name: memory-mcp-server
+    transport: streamable_http
+    url: http://memory-mcp-server:8000/mcp
+
+  - name: proxmox-mcp-server
+    transport: streamable_http
+    url: http://proxmox-mcp-server:8000/mcp
+
+  - name: security-mcp-server
+    transport: streamable_http
+    url: http://security-mcp-server:8000/mcp
+
+  - name: vision-mcp-server
+    transport: streamable_http
+    url: http://vision-mcp-server:8000/mcp
+
+  - name: fabrication-mcp-server
+    transport: streamable_http
+    url: http://fabrication-mcp-server:8000/mcp
+
+  - name: ui-bridge-mcp-server
+    transport: streamable_http
+    url: http://ui-bridge-mcp-server:8000/mcp
+
+  - name: phase4-mcp-server
+    transport: streamable_http
+    url: http://phase4-mcp-server:8000/mcp
+
+  - name: robotics-mcp-server
+    transport: streamable_http
+    url: http://robotics-mcp-server:8000/mcp
+
+  - name: utility-mcp-server
+    transport: streamable_http
+    url: http://utility-mcp-server:8000/mcp
+
+  - name: research-mcp-server
+    transport: streamable_http
+    url: http://research-mcp-server:8000/mcp
+
+  - name: wikipedia-mcp-server
+    transport: streamable_http
+    url: http://wikipedia-mcp-server:8000/mcp
+
+  - name: forgejo-mcp-server
+    transport: streamable_http
+    url: http://forgejo-mcp-server:8000/mcp
+
+  # Phase 38's third-party stealth browser automation server - streamable_http like the domain
+  # servers above, but SUBAGENT_ONLY (tau_core.llm.toolset.SUBAGENT_ONLY_SERVERS): its ~99 tools
+  # never join the main turn's roster, only a spawn_subagent-delegated one - see toolset.py's
+  # docstring on why (tool-count cost to selection accuracy, measured in Phase 22/23). Scoped by
+  # the operator to "own accounts/sites only" (MAIN_SYSTEM_PROMPT), enforced by cdg_rules.yaml's
+  # require_approval tier on every action tool plus MODEL_EXCLUDED_TOOLS on get_cookies/
+  # export_network_data - the CDG rules are the actual gate; this entry is just how tau-core
+  # reaches it. No auth token configured (STEALTH_BROWSER_MCP_AUTH_TOKEN, unset): ServerConfig
+  # has no header/auth field for streamable_http servers, so every domain server in this registry
+  # already trusts the compose network as its perimeter rather than a per-server credential -
+  # unchanged here, not a gap specific to this server.
+  - name: stealth-browser-mcp
+    transport: streamable_http
+    url: http://stealth-browser-mcp:8000/mcp
+
+  # Phase 25's third-party CAD server - stdio, not streamable_http like everything else above.
+  # Its own published HTTP mode is broken two different ways (see docker/tau-core.Dockerfile's
+  # comment for the full story, and both filed upstream - issues #3/#4); stdio is the one mode its
+  # maintainer has actually exercised, so tau-core spawns it as its own subprocess here instead
+  # of it living in a separate container. Pre-installed globally at image build time (see the
+  # Dockerfile) rather than npx-installed over the network on every cold start.
+  - name: openscad-mcp-server
+    transport: stdio
+    command: openscad-mcp-server
+    args: ["--stdio"]

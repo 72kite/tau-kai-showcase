@@ -1,0 +1,88 @@
+# SearxNG configuration for Project Tau's research-mcp-server (Phase 8.A).
+#
+# Two settings here are load-bearing, and both are things a first-run would otherwise trip over:
+#
+#   search.formats: must include `json`. SearxNG ships with the JSON API DISABLED, and without
+#     it every search_web call gets an HTML page back and fails to parse. This is the single most
+#     likely first-run failure, which is why research_mcp_server.search names this file
+#     explicitly in its error message rather than surfacing a JSONDecodeError.
+#
+#   server.limiter: must be false. The limiter is bot protection - correct for a public instance,
+#     but this one is reachable only from inside the compose network and its only client IS a
+#     bot (the research server). With it on, Tau rate-limits itself.
+#
+# This instance publishes no port (see docker-compose.yml): nothing outside the compose network
+# can reach it. That is what makes the secret_key below acceptable - it signs the web UI's own
+# forms, and there is no exposed web UI here. If you ever publish this service, change it:
+#   docker run --rm searxng/searxng python -c "import secrets; print(secrets.token_hex(32))"
+
+use_default_settings: true
+
+general:
+  instance_name: "Tau Research"
+  # No usage stats, no external reporting - consistent with the rest of this system.
+  enable_metrics: false
+
+server:
+  secret_key: "tau-lan-only-not-published-change-me-if-you-expose-this"
+  limiter: false
+  image_proxy: false
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  formats:
+    - html
+    - json
+
+ui:
+  static_use_hash: true
+
+# Text-oriented engines by default, plus (Phase 40) the two image engines search_images actually
+# needs - video/music engines are still cost without benefit and stay excluded. Trimmed rather
+# than exhaustive - add engines as you find you want them.
+engines:
+  - name: wikipedia
+    disabled: false
+  - name: duckduckgo
+    disabled: false
+  - name: google
+    disabled: false
+  - name: stackoverflow
+    disabled: false
+  - name: github
+    disabled: false
+  # Phase 40: backs research-mcp-server's search_images tool (the general "what does X look
+  # like" half of the picture-in-reply feature - see project-tau-plan.md's Phase 40 entry). Two
+  # engines, not one, for the same reason search_web doesn't rely on a single backend - one
+  # engine having a bad day (rate limit, layout change SearxNG's scraper doesn't handle yet)
+  # shouldn't mean zero image results.
+  - name: duckduckgo images
+    disabled: false
+  - name: bing images
+    disabled: false
+  # use_default_settings: true silently turns on SearxNG's whole bundled images-category roster
+  # the moment ANY image engine is enabled, not just the two above - found live (2026-09-11) by
+  # actually querying "Juice WRLD": search_images's #1 result was a UI icon library's "blender"
+  # SVG, because lucide (an ICON library, never appropriate for "a picture of a named person or
+  # thing") and four curated stock-photo/media sites (artic - an art MUSEUM collection; unsplash/
+  # pexels - stock photography; wikicommons.images/openverse - CC media aggregators) were all
+  # firing too, keyword-matching "juice" generically rather than the named entity, and SearxNG
+  # does not rank images by relevance (every result reports score: 1.0 regardless of engine) - so
+  # whichever engine's result merges in first wins position #1. _extract_first_image only ever
+  # takes that first result; there is no re-ranking to save it. Disabling the specific culprits
+  # rather than trying to out-rank them - search_images is meant to answer "what does X look
+  # like" for a named thing/person, which general web image search (duckduckgo/bing) actually
+  # does; a curated art/stock/icon library is a mismatch for that question regardless of ranking.
+  - name: lucide
+    disabled: true
+  - name: artic
+    disabled: true
+  - name: unsplash
+    disabled: true
+  - name: pexels
+    disabled: true
+  - name: wikicommons.images
+    disabled: true
+  - name: openverse
+    disabled: true

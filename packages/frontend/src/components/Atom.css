@@ -1,0 +1,38 @@
+.atom-container {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--paper);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.atom-container canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Listening/thinking are expressed by the atom itself, not a border around its container:
+   the outer ring pulses and breathes with the speaker's voice while listening, and tumbles
+   in 3D while thinking (see Atom.jsx's animation loop). No container outline animations -
+   the state reads from inside the scene, which is both more expressive and cheaper than
+   repainting the container layer on older iPads. */
+
+/* Clickable affordance: tapping the atom is a manual invoke, equivalent to the wake phrase
+   (see useVoiceInvoke.js). Cursor + a barely-there hover cue - no hover-dependent
+   functionality, per this project's touch-first design principle (see frontend/README.md). */
+.atom-container.clickable {
+  cursor: pointer;
+}
+
+.atom-container.clickable:focus-visible {
+  outline-style: solid;
+  outline-color: var(--ink);
+  outline-width: 2px;
+  outline-offset: -3px;
+}

@@ -1,0 +1,352 @@
+.stat-line {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1em;
+  padding: 0.75em;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  font-size: 14px;
+  letter-spacing: 0.05em;
+}
+
+.stat-label {
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.stat-value {
+  font-family: 'Courier New', monospace;
+  text-align: right;
+  font-weight: bold;
+}
+
+.stat-line.online .stat-value {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+.status-indicator {
+  display: flex;
+  gap: 1em;
+  align-items: center;
+  padding: 0.75em;
+  border: 1px solid var(--ink);
+}
+
+.bar-chart {
+  flex: 1;
+  height: 24px;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  background: var(--ink);
+  transition: width 0.3s ease-out;
+}
+
+.percentage {
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  min-width: 50px;
+  text-align: right;
+}
+
+.warning-box {
+  padding: 1em;
+  border: 3px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  animation: warning-pulse 1s ease-in-out infinite;
+}
+
+@keyframes warning-pulse {
+  0%, 100% {
+    border-width: 3px;
+  }
+  50% {
+    border-width: 4px;
+  }
+}
+
+/* Lockdown state styling */
+.security-panel.lockdown {
+  border-color: var(--ink);
+  border-width: 4px;
+  background: var(--paper);
+}
+
+.stat-line.lockdown-active {
+  border-width: 2px;
+  background-color: var(--paper);
+  animation: lockdown-highlight 0.8s ease-in-out infinite;
+}
+
+@keyframes lockdown-highlight {
+  0%, 100% {
+    background-color: var(--paper);
+  }
+  50% {
+    background-color: var(--ink);
+    color: var(--paper);
+  }
+}
+
+/* Camera panel styling */
+.camera-status {
+  padding: 0.75em;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  font-weight: bold;
+  letter-spacing: 0.1em;
+}
+
+.snapshot-placeholder {
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.snapshot-placeholder img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scene-description {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  padding: 0.75em;
+  border: 1px solid var(--ink);
+}
+
+.description-label {
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.description-text {
+  font-family: 'Courier New', monospace;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+/* Memory Tree panel */
+.memory-search-form {
+  display: flex;
+  gap: 0.5em;
+}
+
+.memory-search-input {
+  flex: 1;
+  padding: 0.6em 0.75em;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+}
+
+.memory-search-submit {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 1em;
+  border: 2px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.memory-node {
+  border: 1px solid var(--ink);
+  padding: 0.6em 0.75em;
+  background: var(--paper);
+}
+
+.memory-node-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+}
+
+.memory-node-title {
+  flex: 1;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 13px;
+}
+
+.memory-node-score {
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+}
+
+.memory-reinforce {
+  min-width: 44px;
+  min-height: 44px;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.memory-reinforce:active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.memory-node-content {
+  margin-top: 0.4em;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.memory-node-tags {
+  margin-top: 0.3em;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+}
+
+.panel-note {
+  padding: 0.6em 0.75em;
+  border: 1px dashed var(--ink);
+  font-size: 13px;
+  font-family: 'Courier New', monospace;
+}
+
+/* People panel: voice enrollment */
+.enroll-form {
+  display: flex;
+  gap: 0.5em;
+}
+
+.enroll-continue {
+  width: 100%;
+}
+
+.lan-scan-button {
+  width: 100%;
+  min-height: 44px;
+  border: 2px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.lan-scan-button:disabled {
+  background: var(--paper);
+  color: var(--ink);
+  cursor: default;
+}
+
+/* Activity feed panel */
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  border: 1px solid var(--ink);
+  padding: 0.45em 0.6em;
+  font-size: 13px;
+}
+
+.activity-time {
+  font-family: 'Courier New', monospace;
+  min-width: 70px;
+}
+
+.activity-call {
+  flex: 1;
+  font-family: 'Courier New', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-outcome {
+  font-weight: bold;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 0.2em 0.5em;
+  border: 2px solid var(--ink);
+}
+
+.activity-outcome.outcome-executed {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.activity-outcome.outcome-pending,
+.activity-outcome.outcome-clarify {
+  border-style: dashed;
+}
+
+.activity-outcome.outcome-denied {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* Wake-word picker */
+.wakeword-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  border: 1px solid var(--ink);
+  padding: 0.5em 0.75em;
+}
+
+.wakeword-row.current {
+  border-width: 2px;
+}
+
+.wakeword-label {
+  flex: 1;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 13px;
+}
+
+.wakeword-current-tag {
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+  padding: 0.2em 0.5em;
+  border: 2px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.wakeword-select-btn {
+  min-width: 44px;
+  min-height: 32px;
+  padding: 0.3em 0.75em;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  font-weight: bold;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.wakeword-select-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

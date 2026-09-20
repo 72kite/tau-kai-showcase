@@ -1,0 +1,687 @@
+# Local Docker Compose stack for the whole Project Tau system: tau-core (the MCP Host) + all
+# ten domain MCP servers + the frontend, wired together over streamable_http instead of
+# tau-core spawning each domain server as a local stdio subprocess (see
+# tau-core/config/servers.docker.yaml and each server's `if __name__ == "__main__":` block).
+#
+# This is a dev/test stack, not the production deployment path - for the home-lab k3s cluster,
+# build these same images, push them to the registry at infra/k3s/registry/, and add k3s
+# manifests per service (mirroring infra/k3s/voice/'s pattern). See README.md's Docker section.
+#
+# Before first run: `cp .env.example .env` inside whichever package directories you need real
+# credentials for (proxmox-mcp-server, home-assistant-mcp-server, security-mcp-server, ...).
+# Every env_file below is marked optional, so `docker compose up` works out of the box with
+# each server's built-in defaults (features gated behind *_ENABLED flags stay off until you
+# opt in via that package's own .env) - see each package's own README for what degrades
+# gracefully vs. what a given tool call needs to actually succeed.
+#
+# `env_file: - path: ... required: false` needs Docker Compose v2.24+ (2024). If your compose
+# version is older and rejects this key, drop `required: false` and just create every .env
+# (even empty) with `cp .env.example .env` in each package directory instead.
+
+# ---- Resilience defaults (Phase 9, Tier 0 item 4) -------------------------------------------
+# Before this, 18 services had zero `restart:`, zero `healthcheck:` and no `depends_on`
+# conditions: any container that died stayed dead until someone noticed by hand. Phase 7 made
+# tau-core survive a domain server dying; this is what makes the domain server come *back*.
+#
+# `restart: unless-stopped`, not `always`: a human who runs `docker compose stop x` means it.
+#
+# The healthchecks are deliberately python-based, not the usual `curl -f`: these images are
+# python:3.11-slim and have no curl. Discovered by looking rather than by shipping a
+# healthcheck that would have marked every service permanently unhealthy.
+#
+# 18/18 have restart; 15/18 have a healthcheck. The three without (whisper, piper, searxng) get
+# restart only, on purpose: each is a third-party or custom image whose probe would be a guess,
+# and a healthcheck that is wrong is worse than none - it marks a working service unhealthy and,
+# via depends_on, blocks everything downstream of it. They can be added by someone who checks
+# what those images actually contain.
+x-restart: &restart
+  restart: unless-stopped
+
+# Domain servers speak MCP over streamable-http. A TCP connect proves the process is listening,
+# which is what a healthcheck can honestly assert here - a GET on /mcp is not a valid MCP
+# handshake and would report a healthy server as broken. It is a liveness probe, not a protocol
+# check; the real "does MCP work" signal is tau-core's own /api/health, which lists exactly which
+# servers it has live sessions with.
+x-mcp-server: &mcp-server
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "python", "-c", "import socket;socket.create_connection(('127.0.0.1',8000),3).close()"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+    start_period: 20s
+
+services:
+  # ---- Model runtime (GPU-accelerated) ------------------------------------------------------
+  # Ollama in-compose so the whole system runs inside Docker instead of depending on a host
+  # Ollama at host.docker.internal. This is the single biggest compute consumer (the 14b main
+  # model), so it's the primary target of docker-compose.gpu.yml's GPU passthrough. CPU-only
+  # without the override - functional but slow for a 14b model; pull a smaller OLLAMA_MODEL if
+  # you're staying on CPU. Override OLLAMA_HOST to point back at a host/remote Ollama if you'd
+  # rather not run it here (then this service goes unused).
+  ollama:
+    <<: *restart
+    image: ollama/ollama:latest
+    # `ollama list` rather than an HTTP probe: this image has no curl/wget, but it does have the
+    # ollama CLI, which talks to the same server. Loading a big model can stall the API for a
+    # while, hence the long start_period and generous timeout - a slow model pull must not get
+    # the runtime killed and restarted, which would make it slower still.
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    # Models aren't baked into the image - pull them once the stack is up, e.g.:
+    #   docker compose exec ollama ollama pull qwen2.5:14b-instruct
+    # (see infra/ollama/models.md / pull-models.sh for the full default set).
+
+  # ---- MCP Host -----------------------------------------------------------------------------
+  # ---- Self-hosted web search (Phase 8.A) ---------------------------------------------------
+  # research-mcp-server's search backend. Here rather than "just scrape a search engine" for two
+  # reasons: search queries are a record of what the household is thinking about, and every other
+  # component in this stack (Ollama, Whisper, Piper, Chroma) is self-hosted for exactly that
+  # reason; and the scraping fallback that was tried first does not work - DuckDuckGo answers a
+  # non-browser client with HTTP 202 and a challenge page, and the only way past that is to lie
+  # about being a browser. See research-mcp-server/src/research_mcp_server/search.py.
+  searxng:
+    image: searxng/searxng:latest
+    environment:
+      # SearxNG derives its own base URL from this; it is only reachable inside the compose
+      # network (no published port - nothing outside needs to talk to it but the research server).
+      SEARXNG_BASE_URL: http://searxng:8080/
+    volumes:
+      - ./infra/searxng:/etc/searxng:ro
+    restart: unless-stopped
+
+  research-mcp-server:
+    <<: *mcp-server
+    build:
+      context: ./packages/research-mcp-server
+      dockerfile: ../../docker/mcp-server.Dockerfile
+      args:
+        MODULE: research_mcp_server
+    environment:
+      MCP_TRANSPORT: streamable_http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8000
+      SEARXNG_URL: http://searxng:8080
+    depends_on:
+      - searxng
+
+  # Phase 38: stealth-browser-mcp - a third-party browser-automation server (Chrome + CDP via
+  # nodriver), scoped by the operator to Tau's own accounts/sites only. Pinned to a specific
+  # commit (not `master`) for the same reproducibility reason pylibfreenect2 is pinned in
+  # vision.Dockerfile - Docker supports a git URL directly as a remote build context, so this
+  # uses the upstream repo's own Dockerfile (Chrome/xvfb install, non-root user, /mcp healthcheck)
+  # rather than a duplicated copy of it. SUBAGENT_ONLY at the tau-core layer
+  # (tau_core.llm.toolset.SUBAGENT_ONLY_SERVERS) - its ~99 tools never join the main model's
+  # per-turn roster, only a spawn_subagent-delegated one - and every tool that acts on a real page
+  # is CDG require_approval (cdg_rules.yaml) regardless. No STEALTH_BROWSER_MCP_AUTH_TOKEN
+  # configured: ServerConfig (tau-core's MCP client) has no per-server auth/header field for
+  # streamable_http, so - same as every other domain server here - the compose network itself is
+  # the trust boundary, not a bearer credential. No published port: nothing outside this compose
+  # network needs to reach it, unlike tau-core/frontend.
+  stealth-browser-mcp:
+    <<: *mcp-server
+    build:
+      context: https://github.com/vibheksoni/stealth-browser-mcp.git#cfede72ed2fa9032eeb59dcb57a9f7e204c63e4f
+
+  # ---- Offline knowledge backend (added 2026-08-10) --------------------------------------------
+  # Kiwix serves one Wikipedia ZIM snapshot over HTTP for wikipedia-mcp-server. No published
+  # port, same reasoning as searxng above: nothing outside needs to talk to it but the domain
+  # server. No healthcheck, same reasoning as searxng/whisper/piper below: third-party image,
+  # internals unverified, and a wrong healthcheck is worse than none.
+  #
+  # The ZIM itself isn't baked into any image (too large, and it's a data file, not code) - it
+  # lives in the kiwix-data volume below. Run infra/kiwix/pull-wikipedia-zim.sh once to populate
+  # it; see that script and infra/kiwix/zim-variants.md for the size/coverage tiers available.
+  kiwix-serve:
+    restart: unless-stopped
+    image: ghcr.io/kiwix/kiwix-serve:latest
+    command: ["*.zim"]
+    volumes:
+      - kiwix-data:/data
+
+  wikipedia-mcp-server:
+    <<: *mcp-server
+    build:
+      context: ./packages/wikipedia-mcp-server
+      dockerfile: ../../docker/mcp-server.Dockerfile
+      args:
+        MODULE: wikipedia_mcp_server
+    environment:
+      MCP_TRANSPORT: streamable_http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8000
+      KIWIX_URL: http://kiwix-serve:8080
+      # Fixed on purpose - pull-wikipedia-zim.sh always saves the ZIM under this filename
+      # regardless of which tier it downloaded, so this never has to change. See
+      # wikipedia_mcp_server/kiwix.py's module docstring for why the on-disk filename (not the
+      # ZIM's internal metadata name) is what kiwix-serve actually keys its URLs off.
+      KIWIX_ZIM_NAME: wikipedia
+    depends_on:
+      - kiwix-serve
+
+  forgejo-mcp-server:
+    <<: *mcp-server
+    build:
+      context: ./packages/forgejo-mcp-server
+      dockerfile: ../../docker/mcp-server.Dockerfile
+      args:
+        MODULE: forgejo_mcp_server
+    environment:
+      MCP_TRANSPORT: streamable-http
+      FASTMCP_HOST: 0.0.0.0
+    env_file:
+      - path: ./packages/forgejo-mcp-server/.env
+        required: false
+
+  tau-core:
+    <<: *restart
+    # A LIVENESS probe, on purpose. /api/health returns 200 with status "degraded" when domain
+    # servers are missing, and that must NOT fail this check: restarting tau-core cannot fix a
+    # neighbour being down, Phase 7 went to real trouble to make the host survive exactly that,
+    # and a restart loop would hammer the one process holding the approval queue. What this
+    # catches is the case a restart genuinely fixes - a wedged event loop that answers nothing.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/health',timeout=5)"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 30s
+    build:
+      context: ./packages/tau-core
+      dockerfile: ../../docker/tau-core.Dockerfile
+    environment:
+      TAU_SERVERS_CONFIG_PATH: config/servers.docker.yaml
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://ollama:11434}
+      # tau_core.web.__main__ now defaults to 127.0.0.1 (Phase 7 Tier 1 #9 - see its docstring),
+      # which would bind the CONTAINER's own loopback and make it unreachable through the
+      # `8000:8000` port mapping below - Docker's bridge network forwards to the container's real
+      # interface, not its loopback. Overridden explicitly here (wins over tau-core/.env, which
+      # must not silently disable this): the actual exposure boundary for this deployment is the
+      # host's own firewall/NIC, per README.md's "do NOT expose ports 8000/3000" note.
+      TAU_WEB_HOST: "0.0.0.0"
+      # Which commit this stack is running. Set by scripts/bring-up-tau.ps1; 'dev' when nobody
+      # stamped it. Reported by /api/health so the kiosk footer can spot a stale cached bundle.
+      TAU_BUILD_SHA: ${TAU_BUILD_SHA:-dev}
+      # Phase 7 Tier 0 items 5-6. Both point INTO the volume below - this service had no volume
+      # at all, so its filesystem was ephemeral: the approval queue (the mechanism the whole
+      # architecture rests on) and the audit trail both died with the container. The defaults in
+      # TauCoreSettings/logging_setup are durable, but only relative to the container, which is
+      # exactly the trap this mount closes.
+      TAU_APPROVAL_STORE_PATH: /data/approvals.json
+      TAU_AUDIT_LOG_PATH: /data/audit/audit.log
+      # Phase 27.A: same reasoning as the approval queue above - an admin-approved device's
+      # bearer token must survive a restart, or every deploy would force re-approving every
+      # device. Same volume, no new mount needed.
+      TAU_DEVICE_STORE_PATH: /data/devices.json
+      # Phase 10.3 #11: same reasoning again - conversation history must survive a restart, not
+      # just a Python-process restart in a test. Same volume, no new mount needed.
+      TAU_SESSION_STORE_PATH: /data/sessions.json
+      TAU_DEVICE_SESSION_STORE_PATH: /data/device_sessions.json
+      # Phase 38: the shared secret tau-admin-server authenticates itself with, satisfying
+      # _require_admin the same as an admin voice token would. Must equal
+      # TAU_ADMIN_TAU_CORE_SERVICE_TOKEN in tau-admin-server's own env below - unset by default,
+      # matching every other auth surface's "loud but open until configured" precedent; the admin
+      # backend logs a warning on boot if it's missing over there.
+      TAU_ADMIN_SERVICE_TOKEN: ${TAU_ADMIN_SERVICE_TOKEN:-}
+    env_file:
+      - path: ./packages/tau-core/.env
+        required: false
+    volumes:
+      - tau-core-data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # no-op on Docker Desktop, needed on Linux Engine
+    ports:
+      - "8000:8000"
+    # `service_healthy`, not the bare `service_started` this used to be. Compose's default only
+    # waits for the container to *exist*, so tau-core raced its domain servers on every boot,
+    # lost, and came up degraded - every tool missing until something happened to call it and
+    # trigger a reconnect. Waiting for each server to actually listen means the stack boots with
+    # all 12 sessions live, which is what the /api/health "ok" vs "degraded" split now shows.
+    #
+    # ollama stays `service_started`: it has no healthcheck (its image ships no curl/python
+    # entrypoint we can lean on), and chat degrades to a 503 rather than breaking the bridge.
+    depends_on:
+      ollama:
+        condition: service_started
+      home-assistant-mcp-server:
+        condition: service_healthy
+      voice-mcp-server:
+        condition: service_healthy
+      memory-mcp-server:
+        condition: service_healthy
+      proxmox-mcp-server:
+        condition: service_healthy
+      security-mcp-server:
+        condition: service_healthy
+      vision-mcp-server:
+        condition: service_healthy
+      fabrication-mcp-server:
+        condition: service_healthy
+      ui-bridge-mcp-server:
+        condition: service_healthy
+      phase4-mcp-server:
+        condition: service_healthy
+      robotics-mcp-server:
+        condition: service_healthy
+      utility-mcp-server:
+        condition: service_healthy
+      research-mcp-server:
+        condition: service_healthy
+      wikipedia-mcp-server:
+        condition: service_healthy
+      forgejo-mcp-server:
+        condition: service_healthy
+      # NOT service_healthy, unlike every domain server above - deliberately. Every other one of
+      # those builds from a local pyproject.toml this repo owns; this one builds fresh from a
+      # third-party GitHub URL (Chrome + xvfb, no local cache) every time, which is a real network/
+      # build-time dependency the others don't have. A build hiccup here (GitHub unreachable, a
+      # slow connection, a transient failure) must not be able to prevent tau-core itself - the
+      # whole household assistant - from starting, for a server that's SUBAGENT_ONLY and optional
+      # by design (tau_core.llm.toolset.SUBAGENT_ONLY_SERVERS). service_started still orders the
+      # container creation so it exists to be reached once healthy; tau-core just doesn't block on
+      # waiting for it.
+      stealth-browser-mcp:
+        condition: service_started
+
+  frontend:
+    <<: *restart
+    # nginx:alpine ships busybox wget (no curl). --spider is a HEAD: it asks "is the bundle
+    # being served" without pulling it every 30s.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    build:
+      context: ./packages/frontend
+      dockerfile: ../../docker/frontend.Dockerfile
+      args:
+        # Baked in at build time (Vite `define`), not read at run time - the bundle is static.
+        # This is what the footer compares against /api/health to detect a stale cached PWA.
+        TAU_BUILD_SHA: ${TAU_BUILD_SHA:-dev}
+    ports:
+      - "3000:80"
+    depends_on:
+      - tau-core
+
+  # Phase 38: the standalone admin control panel backend - separate process/port/auth from
+  # tau-core above, on purpose (see packages/tau-admin-server/README.md). Deliberately NOT wired
+  # into the frontend service's depends_on or nginx config - the kiosk build carries no route to
+  # this at all; it's reached as its own app (packages/admin-frontend), typically bound to a
+  # VPN-only interface rather than published on the open LAN the way 3000/8000 are.
+  tau-admin-server:
+    <<: *restart
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8100/health',timeout=5)"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 10s
+    build:
+      context: ./packages/tau-admin-server
+      dockerfile: ../../docker/tau-admin-server.Dockerfile
+    env_file:
+      - path: ./packages/tau-admin-server/.env
+        required: false
+    environment:
+      TAU_ADMIN_TAU_CORE_BASE_URL: http://tau-core:8000
+    volumes:
+      - tau-admin-data:/app/data
+    ports:
+      - "8100:8100"
+    depends_on:
+      tau-core:
+        condition: service_healthy
+
+  # The admin panel's own frontend (Phase 38) - a separate app on a separate port from the kiosk
+  # `frontend` service above, proxying to tau-admin-server (nginx.conf), never to tau-core
+  # directly. Same "bind this to a VPN-only interface, don't publish it on the open LAN like
+  # 3000" recommendation as tau-admin-server itself.
+  admin-frontend:
+    <<: *restart
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    build:
+      context: ./packages/admin-frontend
+      dockerfile: ../../docker/admin-frontend.Dockerfile
+    ports:
+      - "3100:80"
+    depends_on:
+      - tau-admin-server
+
+  # ---- Domain servers (generic src-layout image, one MODULE build arg each) -----------------
+  home-assistant-mcp-server:
+    <<: *mcp-server
+    build:
+      context: ./packages/home-assistant-mcp-server
+      dockerfile: ../../docker/mcp-server.Dockerfile
+      args:
+        MODULE: ha_mcp_server
+    environment:
+      MCP_TRANSPORT: streamable-http
+      FASTMCP_HOST: 0.0.0.0
+    env_file:
+      - path: ./packages/home-assistant-mcp-server/.env
+        required: false
+
+  voice-mcp-server:
+    <<: *mcp-server
+    build:
+      context: ./packages/voice-mcp-server
+      dockerfile: ../../docker/voice.Dockerfile
+    environment:
+      MCP_TRANSPORT: streamable-http
+      FASTMCP_HOST: 0.0.0.0
+      # Wired to the in-compose whisper/piper services below (was localhost, wrong in a
+      # container). Speaker-ID embedding runs on CPU here; docker-compose.gpu.yml flips
+      # SPKREC_DEVICE=cuda (needs the CUDA image variant - see that file's header).
+      WHISPER_URL: ${WHISPER_URL:-http://whisper:9000}
+      PIPER_URI: ${PIPER_URI:-tcp://piper:10200}
+      SPKREC_DEVICE: ${SPKREC_DEVICE:-cpu}
+      SPKREC_MODEL_DIR: /app/data/spkrec
+      # Wake word. Left empty on purpose: the package ships its own trained "hey tau" model
+      # (src/voice_mcp_server/models/hey_tau.onnx) and resolves it by absolute path, so there's
+      # nothing to set for the normal case. Point WAKEWORD_MODEL at another .onnx (or an
+      # openWakeWord bundled name like "hey_jarvis") only to override the FIRST-run default -
+      # switching it live (no restart) is the Admin Dashboard's WAKE WORD panel / set_wake_word,
+      # which persists to the voice-models volume and takes priority over this var once used.
+      # WAKEWORD_THRESHOLD trades misses against false wakes - see the package README for the
+      # measured recall / false-accepts-per-hour curve before changing it.
+      WAKEWORD_MODEL: ${WAKEWORD_MODEL:-}
+      WAKEWORD_THRESHOLD: ${WAKEWORD_THRESHOLD:-0.5}
+      # Spoken voice. Same shape as WAKEWORD_MODEL above: this only sets the FIRST-run default.
+      # Switching it live is the Admin Dashboard's VOICE panel / set_voice, which persists to the
+      # voice-models volume and outranks this var once used. Must name a voice piper-voice-seed
+      # actually downloaded, or speak() falls back to whatever piper was started with.
+      PIPER_VOICE: ${PIPER_VOICE:-}
+    env_file:
+      - path: ./packages/voice-mcp-server/.env
+        required: false
+    volumes:
+      - voice-models:/app/data
+    depends_on:
+      - whisper
+      - piper
+
+  memory-mcp-server:
+    <<: *mcp-server
+    build:
+      context: ./packages/memory-mcp-server
+      dockerfile: ../../docker/mcp-server.Dockerfile
+      args:
+        MODULE: memory_mcp_server
+    environment:
+      MCP_TRANSPORT: streamable-http
+      FASTMCP_HOST: 0.0.0.0
+      MEMORY_DB_PATH: /app/data/chroma
+      MEMORY_PROFILES_PATH: /app/data/profiles.json
+    env_file:
+      - path: ./packages/memory-mcp-server/.env
+        required: false
+    volumes:
+      - memory-data:/app/data
+
+  proxmox-mcp-server:
+    <<: *mcp-server
+    build:
+      context: ./packages/proxmox-mcp-server
+      dockerfile: ../../docker/mcp-server.Dockerfile
+      args:
+        MODULE: proxmox_mcp_server
+    environment:
+      MCP_TRANSPORT: streamable-http
+      FASTMCP_HOST: 0.0.0.0
+    env_file:
+      - path: ./packages/proxmox-mcp-server/.env
+        required: false
+
+  security-mcp-server:
+    <<: *mcp-server
+    build:
+      context: ./packages/security-mcp-server
+      dockerfile: ../../docker/mcp-server.Dockerfile
+      args:
+        MODULE: security_mcp_server
+    environment:
+      MCP_TRANSPORT: streamable-http
+      FASTMCP_HOST: 0.0.0.0
+      SECURITY_DB_PATH: /app/data/security.json
+    env_file:
+      - path: ./packages/security-mcp-server/.env
+        required: false
+    volumes:
+      - security-data:/app/data
+
+  fabrication-mcp-server:
+    <<: *mcp-server
+    build:
+      context: ./packages/fabrication-mcp-server
+      dockerfile: ../../docker/mcp-server.Dockerfile
+      args:
+        MODULE: fabrication_mcp_server
+    environment:
+      MCP_TRANSPORT: streamable-http
+      FASTMCP_HOST: 0.0.0.0
+    env_file:
+      - path: ./packages/fabrication-mcp-server/.env
+        required: false
+
+  robotics-mcp-server:
+    <<: *mcp-server
+    build:
+      context: ./packages/robotics-mcp-server
+      dockerfile: ../../docker/mcp-server.Dockerfile
+      args:
+        MODULE: robotics_mcp_server
+    environment:
+      MCP_TRANSPORT: streamable-http
+      FASTMCP_HOST: 0.0.0.0
+    env_file:
+      - path: ./packages/robotics-mcp-server/.env
+        required: false
+
+  # Phase 6.B: time/date, system status, self-knowledge. Reads tau-core/.env so get_system_status
+  # can report the current OLLAMA_MODEL (the GPU/VRAM probe from 6.A degrades to unavailable here -
+  # this slim image has neither tau_core nor nvidia-smi, by design; model + CPU + uptime still show,
+  # and describe_capabilities falls back to its built-in catalog when the registry file isn't
+  # mounted). TAU_TIMEZONE, if set in tau-core/.env, controls the reported zone.
+  utility-mcp-server:
+    <<: *mcp-server
+    build:
+      context: ./packages/utility-mcp-server
+      dockerfile: ../../docker/mcp-server.Dockerfile
+      args:
+        MODULE: utility_mcp_server
+    environment:
+      MCP_TRANSPORT: streamable-http
+      FASTMCP_HOST: 0.0.0.0
+      # So tau://identity can answer "what version are you" from fact, matching /api/health.
+      TAU_BUILD_SHA: ${TAU_BUILD_SHA:-dev}
+    env_file:
+      - path: ./packages/tau-core/.env
+        required: false
+      - path: ./packages/utility-mcp-server/.env
+        required: false
+
+  # ui-bridge and phase4 share phase4-data: ui-bridge reads phase4's proposals.json straight off
+  # disk (see ui_bridge_mcp_server/server.py's _load_approval_queue) rather than over MCP, so in
+  # containers they need the same file, not just the same env var default.
+  ui-bridge-mcp-server:
+    <<: *mcp-server
+    build:
+      context: ./packages/ui-bridge-mcp-server
+      dockerfile: ../../docker/mcp-server.Dockerfile
+      args:
+        MODULE: ui_bridge_mcp_server
+    environment:
+      MCP_TRANSPORT: streamable-http
+      FASTMCP_HOST: 0.0.0.0
+      PROPOSAL_DB_PATH: /app/data/proposals.json
+      # Durable unified transcript (Phase 14, §10.2 #6) on ui-bridge's OWN volume, not phase4-data
+      # (which it only reads proposals from). Encrypted at rest when TAU_MASTER_KEY is set.
+      TAU_TRANSCRIPT_STORE_PATH: /app/uidata/transcript.json
+      # LRU cap on the number of persisted per-device buckets (Phase 15 #2), so a client cycling
+      # X-Tau-Device-Id can't grow the volume without bound. Mirrors TAU_SESSION_MAX_DEVICES.
+      TAU_TRANSCRIPT_MAX_DEVICES: 64
+    env_file:
+      - path: ./packages/ui-bridge-mcp-server/.env
+        required: false
+    volumes:
+      - phase4-data:/app/data
+      - ui-bridge-data:/app/uidata
+
+  phase4-mcp-server:
+    <<: *mcp-server
+    build:
+      context: ./packages/phase4-upgrade-pipeline
+      dockerfile: ../../docker/phase4.Dockerfile
+    environment:
+      MCP_TRANSPORT: streamable-http
+      FASTMCP_HOST: 0.0.0.0
+      PROPOSAL_DB_PATH: /app/data/proposals.json
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://ollama:11434}
+    env_file:
+      - path: ./packages/phase4-upgrade-pipeline/.env
+        required: false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # no-op on Docker Desktop, needed on Linux Engine
+    depends_on:
+      - ollama
+    volumes:
+      - phase4-data:/app/data
+
+  # ---- Voice backends (STT + TTS) -----------------------------------------------------------
+  # faster-whisper STT (infra/whisper). CPU/int8 by default; docker-compose.gpu.yml rebuilds it
+  # on a CUDA base and sets WHISPER_DEVICE=cuda. Models download to a cache volume on first use.
+  whisper:
+    <<: *restart
+    build:
+      context: ./infra/whisper
+      dockerfile: ../../docker/whisper.Dockerfile
+    environment:
+      WHISPER_MODEL: ${WHISPER_MODEL:-base}
+      WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
+    volumes:
+      - whisper-cache:/root/.cache/huggingface
+
+  # Piper TTS over the Wyoming protocol (voice-mcp-server's PiperClient speaks this wire format).
+  # TTS is light - no GPU path. Pick a voice via command; en_US-lessac-medium is a good default.
+  # wyoming-piper only downloads the ONE voice named in its --voice flag, so a voice picked at
+  # runtime through set_voice would have no model to load. This puts the rest on disk first.
+  # Idempotent: after the initial download it costs one `test -s` per voice per restart, and
+  # `restart: "no"` stops it looping. Deliberately at FIRST BOOT rather than at speak() time -
+  # that is what keeps the local-first promise honest, since nothing here touches the network
+  # again once the models are on the volume.
+  #
+  # Note the `|| echo WARN` rather than letting set -e abort: one unreachable voice must not stop
+  # the whole stack from starting, and the picker already renders an un-downloaded voice as
+  # unavailable. The .part -> mv dance stops a truncated download from looking seeded next time.
+  piper-voice-seed:
+    image: curlimages/curl:latest
+    restart: "no"
+    volumes:
+      - piper-data:/data
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -u
+        base=https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0
+        # dir:name - dir is the path under rhasspy/piper-voices, name is the Piper voice id.
+        # Keep this list in step with voice_mcp_server.tts_voice.AVAILABLE_VOICES; a voice offered
+        # in the picker but missing here downloads nothing and falls back to the default.
+        specs="en/en_US/lessac/medium:en_US-lessac-medium
+        en/en_US/amy/medium:en_US-amy-medium
+        en/en_US/ryan/high:en_US-ryan-high
+        en/en_US/kristin/medium:en_US-kristin-medium
+        en/en_GB/alba/medium:en_GB-alba-medium"
+        echo "$$specs" | while IFS= read -r spec; do
+          spec=$$(echo "$$spec" | tr -d ' ')
+          [ -z "$$spec" ] && continue
+          dir=$${spec%%:*}
+          name=$${spec##*:}
+          for ext in onnx onnx.json; do
+            if [ -s "/data/$$name.$$ext" ]; then continue; fi
+            echo "seeding $$name.$$ext"
+            if curl -fsSL --retry 3 -o "/data/$$name.$$ext.part" "$$base/$$dir/$$name.$$ext?download=true"; then
+              mv "/data/$$name.$$ext.part" "/data/$$name.$$ext"
+            else
+              rm -f "/data/$$name.$$ext.part"
+              echo "WARN: could not seed $$name.$$ext - that voice will fall back to the default"
+            fi
+          done
+        done
+        echo "piper voice seed complete"
+
+  piper:
+    <<: *restart
+    image: rhasspy/wyoming-piper:latest
+    # Also the fallback voice: voice_mcp_server.tts_voice.DEFAULT_TTS_VOICE must match this, since
+    # this is the one model piper fetches on its own even if the seed service never ran.
+    command: ["--voice", "en_US-lessac-medium"]
+    volumes:
+      - piper-data:/data
+    depends_on:
+      piper-voice-seed:
+        condition: service_completed_successfully
+
+  # ---- vision-mcp-server: own Dockerfile (opencv/insightface system libs) -------------------
+  vision-mcp-server:
+    <<: *mcp-server
+    build:
+      context: ./packages/vision-mcp-server
+      dockerfile: ../../docker/vision.Dockerfile
+    environment:
+      MCP_TRANSPORT: streamable-http
+      FASTMCP_HOST: 0.0.0.0
+      # camera_client.py's CameraClient only knows how to open a local device index
+      # (cv2.VideoCapture(int(CAMERA_SOURCE))) - it has no IP-camera/RTSP source, and
+      # PTZ_ENABLED only gates the separate pan/tilt/zoom control tools, not snapshot capture.
+      # So get_snapshot/detect_faces/describe_scene/track_object need a real /dev/videoN
+      # passed through (devices: below, Linux hosts only) or they'll error at call time - this
+      # doesn't work at all through Docker Desktop on Windows/Mac. Uncomment `devices:` on
+      # Linux; otherwise run vision-mcp-server natively (see its README) when you need
+      # get_snapshot/detect_faces/etc - ptz_pan/tilt/zoom don't touch the camera and work fine
+      # containerized either way (they're plain HTTP calls to PTZ_URL).
+    env_file:
+      - path: ./packages/vision-mcp-server/.env
+        required: false
+    volumes:
+      - insightface-models:/root/.insightface
+    # devices:
+    #   - /dev/video0:/dev/video0   # Linux hosts only - see comment above
+
+volumes:
+  # Pending human approvals + the durable audit trail (Phase 7 Tier 0). Named, so `docker
+  # compose down` (without -v) and any redeploy keep both - a restart that silently discarded
+  # pending approvals, or the record of who granted them, is exactly the failure this closes.
+  tau-core-data:
+  memory-data:
+  security-data:
+  phase4-data:
+  # The durable unified transcript (Phase 14, §10.2 #6) - ui-bridge's own volume, kept across
+  # restarts and redeploys so older turns survive (6.F removed kiosk scrollback on the premise
+  # this was the durable record; before Phase 14 it wasn't retained anywhere).
+  ui-bridge-data:
+  insightface-models:
+  ollama-models:
+  whisper-cache:
+  piper-data:
+  voice-models:
+  # The Wikipedia ZIM snapshot (added 2026-08-10) - see infra/kiwix/pull-wikipedia-zim.sh to populate it.
+  kiwix-data:
+  # The admin account + session store (Phase 38) - durable so a restart doesn't force
+  # re-bootstrapping the account or logging every open admin session back out.
+  tau-admin-data:

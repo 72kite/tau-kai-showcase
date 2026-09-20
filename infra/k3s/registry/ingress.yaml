@@ -1,0 +1,26 @@
+# Exposes the registry via k3s's built-in Traefik. TLS uses a self-signed/internal cert; Docker
+# clients pushing to this registry will need --insecure-registry or the CA trusted, documented
+# in infra/README.md.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: registry
+  namespace: registry
+  annotations:
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  tls:
+    - hosts:
+        - registry.tau.lan
+      secretName: registry-tls
+  rules:
+    - host: registry.tau.lan
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: registry
+                port:
+                  number: 5000

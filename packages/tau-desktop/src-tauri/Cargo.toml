@@ -1,0 +1,44 @@
+[package]
+name = "tau-desktop"
+version = "0.1.0"
+description = "Tauri desktop shell for Tau (Phase 27.D)"
+edition = "2021"
+rust-version = "1.77"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-notification = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["time", "net", "rt-multi-thread"] }
+mdns-sd = "0.11"
+rustls = { version = "0.23", features = ["ring"] }
+tokio-rustls = "0.26"
+sha2 = "0.10"
+hyper = { version = "1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+bytes = "1"
+sysinfo = "0.36.1"
+
+# keyring 3.x ships NO default features - with none enabled it silently falls back to a no-op
+# mock store (set_password() returns Ok(()), get_password() always NoEntry) rather than a build
+# error, which is exactly the bug this target-specific split fixes: plain `keyring = "3"` in
+# [dependencies] compiled clean and "worked" (no errors) while never actually touching Windows
+# Credential Manager - caught by testing an actual round-trip, not by the compiler.
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+
+# Linux Secret Service (gnome-keyring/kwallet via D-Bus), matching what project-tau-plan.md's
+# 27.D section named - not linux-native (kernel keyutils, a different and less persistent store).
+# Needs libdbus-1-dev at build time; unverified like the rest of this project's Linux path.
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["sync-secret-service"] }
+
+[[bin]]
+name = "tau-desktop"
+path = "src/main.rs"

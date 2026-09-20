@@ -1,0 +1,11 @@
+# Helm values for grafana/promtail. Runs as a DaemonSet tailing container stdout on every node
+# and shipping it to Loki - this is the concrete mechanism that fulfills the docstring in
+# tau-core/src/tau_core/logging_setup.py ("this stream feeds the Loki/Grafana stack from
+# Phase 0"). tau-core itself doesn't run in k3s yet (that's Phase 2+), so its logs won't appear
+# until it's deployed there with an `app: tau-core` pod label - the default chart relabeling
+# already promotes that label to a Loki `app` label, which is what the starter dashboard queries.
+# Install with:
+#   helm upgrade --install promtail grafana/promtail -n observability -f promtail-values.yaml
+config:
+  clients:
+    - url: http://loki.observability.svc.cluster.local:3100/loki/api/v1/push

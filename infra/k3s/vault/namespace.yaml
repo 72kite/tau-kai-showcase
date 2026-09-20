@@ -1,0 +1,6 @@
+# Namespace itself is created by ../bootstrap/00-namespaces.yaml; this file exists so the vault/
+# directory is self-contained if applied on its own.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vault

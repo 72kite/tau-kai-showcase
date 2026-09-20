@@ -1,0 +1,114 @@
+/* Generative "drawn" reveal (Phase 6.C second pass) - see DrawIn.jsx for why this is a wipe
+   rather than a stroke-dashoffset trace.
+
+   Two layers: the element's own content is wiped in behind a moving edge, and a ::after pen-line
+   rides that edge and lifts off at the end. Both run once, on mount - nothing here animates
+   continuously, so it costs nothing at rest on a low-power tablet. */
+
+.draw-in {
+  --draw-delay: 0ms;
+  --draw-duration: 620ms;
+  position: relative;
+  animation: draw-in-wipe var(--draw-duration) cubic-bezier(0.22, 0.61, 0.36, 1) var(--draw-delay)
+    both;
+}
+
+/* The pen: a hairline of ink at the leading edge of the wipe, travelling with it and lifting at
+   the end of the stroke. pointer-events:none so it never eats a tap on the content behind it. */
+.draw-in::after {
+  content: '';
+  position: absolute;
+  background: var(--ink);
+  pointer-events: none;
+  z-index: 5;
+  animation: draw-in-pen var(--draw-duration) cubic-bezier(0.22, 0.61, 0.36, 1) var(--draw-delay)
+    both;
+}
+
+/* Left-to-right: the default. The pen is a vertical hairline sweeping across. */
+.draw-right {
+  animation-name: draw-in-wipe-right;
+}
+
+.draw-right::after {
+  top: 0;
+  bottom: 0;
+  width: 1.5px;
+  animation-name: draw-in-pen-right;
+}
+
+@keyframes draw-in-wipe-right {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes draw-in-pen-right {
+  0% {
+    left: 0;
+    opacity: 0;
+  }
+  8% {
+    opacity: 0.9;
+  }
+  85% {
+    opacity: 0.9;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
+/* Top-to-bottom: for stacked lists, where a downward hand reads more naturally. */
+.draw-down {
+  animation-name: draw-in-wipe-down;
+}
+
+.draw-down::after {
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  animation-name: draw-in-pen-down;
+}
+
+@keyframes draw-in-wipe-down {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes draw-in-pen-down {
+  0% {
+    top: 0;
+    opacity: 0;
+  }
+  8% {
+    opacity: 0.9;
+  }
+  85% {
+    opacity: 0.9;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+/* Reduced motion: no wipe, no pen, no delay - the content is simply there. The reveal is
+   decoration; nothing about it is load-bearing. */
+@media (prefers-reduced-motion: reduce) {
+  .draw-in {
+    animation: none;
+  }
+
+  .draw-in::after {
+    display: none;
+  }
+}

@@ -1,0 +1,27 @@
+# Ollama runs on its own Proxmox VM (see ../../ansible/playbooks/04-ollama-node.yml), outside
+# k3s, to keep GPU passthrough simple (see infra/README.md tool-choice table). This gives
+# anything inside the cluster a stable in-cluster DNS name - tau-ollama.default.svc.cluster.local
+# - that resolves to the VM's real IP, so callers don't need to know it changes.
+#
+# Replace 192.0.2.31 with the Ollama VM's actual IP (same value used in
+# infra/ansible/inventory/hosts.yml's ollama_nodes group).
+apiVersion: v1
+kind: Service
+metadata:
+  name: tau-ollama
+  namespace: default
+spec:
+  ports:
+    - port: 11434
+      targetPort: 11434
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: tau-ollama
+  namespace: default
+subsets:
+  - addresses:
+      - ip: 192.0.2.31
+    ports:
+      - port: 11434

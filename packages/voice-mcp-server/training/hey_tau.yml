@@ -1,0 +1,133 @@
+## openWakeWord training config for Tau's "hey tau" wake word.
+## Run with: python openWakeWord/openwakeword/train.py --training_config hey_tau.yml <stage flag>
+
+model_name: "hey_tau"
+
+# Both spellings are the SAME wake word to a human, but espeak-ng phonemizes them differently:
+#   "hey tau" -> hˈeɪ tˈaʊ   (tau rhyming with "now"  - the common US reading)
+#   "hey taw" -> hˈeɪ tˈɔː   (tau rhyming with "law")
+# Piper phonemizes deterministically, so every one of the ~900 LibriTTS speakers would otherwise
+# say the exact same vowel. Listing both makes this one binary model fire on either reading,
+# which is what we want since we can't know in advance which the operator uses.
+target_phrase:
+  - "hey tau"
+  - "hey taw"
+
+# "hey tau" is a hard wake phrase: 2 syllables, and /tˈaʊ/ sits in a dense neighbourhood.
+# train.py already mines adversarial phrases by phoneme overlap; these are the specific ones
+# worth forcing, verified against espeak-ng output:
+#   hey town  -> hˈeɪ tˈaʊn   (target + one coda consonant - the single hardest negative)
+#   hey now   -> hˈeɪ nˈaʊ    (same vowel, one onset consonant away)
+#   hey how   -> hˈeɪ hˈaʊ
+#   towel     -> tˈaʊəl
+#   tower     -> tˈaʊɚ
+#   ciao/chow -> tʃˈaʊ        (affricate onset, same nucleus)
+# Plus the very common conversational "hey to / hey two / hey too" and name collisions.
+custom_negative_phrases:
+  - "hey town"
+  - "hey towns"
+  - "hey now"
+  - "hey how"
+  - "hey down"
+  - "hey thou"
+  - "hey thousand"
+  - "hey cow"
+  - "hey wow"
+  - "hey ciao"
+  - "hey chow"
+  - "towel"
+  - "tower"
+  - "towels"
+  - "hey towel"
+  - "hey tower"
+  - "hey to"
+  - "hey two"
+  - "hey too"
+  - "hey tom"
+  - "hey todd"
+  - "hey tommy"
+  - "hey tall"
+  - "hey talk"
+  - "hey taco"
+  - "hey top"
+  - "hey toe"
+  - "hey tow"
+  - "hey ted"
+  - "hey dow"
+  - "hey ta"
+  - "tau"
+  - "taw"
+  - "a tau"
+  - "the tau"
+  - "tau protein"
+  - "hey guys"
+  - "okay tau"
+
+# 50k positives: comfortably above the 20k documented minimum, and warranted here because the
+# phrase is confusable. Split across the two target spellings above.
+n_samples: 50000
+n_samples_val: 2000
+
+# 8GB VRAM on the RTX 3070 - the upstream notebook's 50 assumes a 16GB Colab T4.
+tts_batch_size: 25
+
+augmentation_batch_size: 16
+augmentation_rounds: 1
+
+piper_sample_generator_path: "/opt/ww/piper-sample-generator"
+output_dir: "/opt/ww/hey_tau"
+
+rir_paths:
+  - "/opt/ww/data/mit_rirs"
+
+background_paths:
+  - "/opt/ww/data/background_clips"
+
+background_paths_duplication_rate:
+  - 1
+
+false_positive_validation_data_path: "/opt/ww/data/validation_set_features.npy"
+
+feature_data_files:
+  "ACAV100M_sample": "/opt/ww/data/openwakeword_features_ACAV100M_2000_hrs_16bit.npy"
+
+batch_n_per_class:
+  "ACAV100M_sample": 1024
+  "adversarial_negative": 50
+  "positive": 50
+
+model_type: "dnn"
+layer_size: 32
+
+steps: 50000
+
+# Retuned after run 1 produced accuracy 0.574 / recall 0.149 / 0.0 false-positives-per-hour -
+# i.e. a model that hit the false-positive target by refusing to fire at all.
+#
+# The cause is in auto_train: after sequences 1 and 2 it runs
+#     if self.best_val_fp > target_fp_per_hour: max_negative_weight = max_negative_weight*2
+# so 1500 with a 0.2/hr target escalated to 6000 by the final sequence. The final model then
+# averages only checkpoints with val_fp_per_hr <= the 10th percentile, compounding it. For a
+# confusable 2-syllable phrase that collapses recall past the point of recovery.
+#
+# The fix is a reframing: the DEPLOYMENT THRESHOLD should set the operating point, not the
+# training weights. Train a model with good separation, then pick WAKEWORD_THRESHOLD off the
+# measured recall-vs-false-accepts curve (09_evaluate.py). So: a permissive fp target that
+# doesn't trigger the doubling spiral, and a moderate starting weight.
+# Run 2 (weight 500 / target 2.0) still escalated twice to 2000 and gave recall 0.177.
+# The sweep on run 2 identified the real problem, and it is NOT phrase confusability:
+#   positive scores   min=0.0007  p10=0.0010  median=0.0438  max=0.9354
+#   adversarial       median=0.0008           p99=0.0301
+#   adversarial false-accept at thr 0.15: only 0.4%
+# The model separates "hey tau" from "hey town"/"hey now" fine - it just barely fires at all.
+# The entire score distribution is compressed against zero, which is what a huge negative weight
+# does to a sigmoid. Under-firing, not over-triggering.
+#
+# So: disable the escalation outright. target_fp_per_hour is ONLY consumed as
+#     if self.best_val_fp > target_fp_per_hour: max_negative_weight *= 2
+# so a deliberately unreachable target keeps the weight flat at its starting value across all
+# three sequences. 100 is a mild negative bias - enough to discourage false fires, not enough to
+# flatten the positives. The operating point is then chosen from the measured curve via
+# WAKEWORD_THRESHOLD, which is where it belongs.
+max_negative_weight: 100
+target_false_positives_per_hour: 50.0

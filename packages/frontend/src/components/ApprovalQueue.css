@@ -1,0 +1,239 @@
+.approval-queue-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(var(--paper-rgb), 0.95);
+  border: 3px solid var(--ink);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2em;
+}
+
+.approval-queue-panel {
+  max-width: 800px;
+  width: 100%;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+}
+
+.approval-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1em;
+  align-items: center;
+  border-bottom: 2px solid var(--ink);
+  padding: 1em;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 16px;
+}
+
+.approval-icon {
+  font-size: 24px;
+  animation: approval-pulse 1s ease-in-out infinite;
+}
+
+@keyframes approval-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.approval-title {
+  justify-self: center;
+}
+
+.approval-count {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.25em 0.75em;
+  border: 1px solid var(--ink);
+  font-weight: bold;
+  text-align: center;
+  min-width: 3em;
+}
+
+.approval-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+  padding: 1em;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.approval-item {
+  border: 2px solid var(--ink);
+  padding: 1em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+}
+
+.approval-action {
+  display: flex;
+  gap: 1em;
+  align-items: center;
+  font-weight: bold;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.action-name {
+  font-size: 16px;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+.action-server {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* A faint wash of ink over paper rather than a fixed near-white: this used to be a hardcoded
+   #f9f9f9, which the 6.C dark-mode sweep missed - in dark mode it left near-white text on a
+   near-white box, making the reason and arguments of an approval unreadable on exactly the
+   surface where reading them matters most. */
+.approval-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  padding: 0.75em;
+  border: 1px solid var(--ink);
+  background: rgba(var(--ink-rgb), 0.06);
+  font-size: 12px;
+}
+
+.reason-label {
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.reason-text {
+  font-family: 'Courier New', monospace;
+  line-height: 1.4;
+}
+
+.approval-params {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  padding: 0.75em;
+  border: 1px solid var(--ink);
+  background: rgba(var(--ink-rgb), 0.06);
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+}
+
+.params-label {
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.param-line {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 0.5em;
+  word-break: break-all;
+}
+
+.param-name {
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.param-value {
+  color: var(--muted);
+}
+
+.approval-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1em;
+}
+
+.approval-button {
+  padding: 0.75em;
+  min-height: 48px; /* touch target for tablet use */
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  font-family: 'Roboto Mono', monospace;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.1s step-start;
+}
+
+.approval-button:hover {
+  border-width: 3px;
+}
+
+.approval-button.approve {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.approval-button.approve:active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.approval-button.deny {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.approval-button.deny:active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* Voice challenge: replay-resistant identity verification before a decision counts. */
+.voice-challenge {
+  border: 3px solid var(--ink);
+  padding: 1em;
+  margin-bottom: 1em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+
+.challenge-title {
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 0.15em;
+}
+
+.challenge-instruction {
+  font-size: 13px;
+}
+
+.challenge-phrase {
+  font-family: 'Courier New', monospace;
+  font-size: 22px;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+  text-align: center;
+  border: 2px dashed var(--ink);
+  padding: 0.5em;
+}
+
+.challenge-note {
+  font-size: 12px;
+  font-style: italic;
+}

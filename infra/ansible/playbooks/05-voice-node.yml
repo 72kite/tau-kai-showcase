@@ -1,0 +1,31 @@
+---
+# Piper/Whisper run as k3s Deployments (../../k3s/voice/), not bare VMs - this playbook just
+# prepares whichever k3s_agent node hosts them: labels it so the manifests' nodeSelector can
+# target it, and confirms it has enough disk for voice model caches.
+- name: Prepare the k3s node that will host voice workloads
+  hosts: voice_nodes
+  become: true
+  tasks:
+    - name: Check available disk space on the root filesystem
+      ansible.builtin.shell: |
+        set -o pipefail
+        df --output=avail -B1 / | tail -n1
+      args:
+        executable: /bin/bash
+      register: root_fs_avail
+      changed_when: false
+
+    - name: Warn if less than 10GB free (Whisper model cache + Piper voices)
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: only {{ (root_fs_avail.stdout | trim | int / 1073741824) | round(1) }} GiB
+          free on this node's root filesystem; voice model caches may not fit.
+      when: (root_fs_avail.stdout | trim | int) < 10737418240
+
+    - name: Label this node for voice workload scheduling
+      ansible.builtin.command:
+        cmd: >-
+          kubectl --kubeconfig {{ playbook_dir }}/../../k3s/kubeconfig
+          label node {{ inventory_hostname }} tau-role=voice --overwrite
+      changed_when: true
+      delegate_to: localhost

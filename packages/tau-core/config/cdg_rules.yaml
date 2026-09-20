@@ -1,0 +1,51 @@
+# Core Directive Guard ruleset — ILLUSTRATIVE EXAMPLE.
+#
+# This is a small, representative subset standing in for the real ruleset this project actually
+# runs on. The mechanism below is exactly what's live in production (this is the real
+# enforcement code, fully tested — see packages/tau-core/tests/test_cdg.py); the specific rules
+# here are examples chosen to show the shape of the system (an unconditional deny, a
+# human-approval gate, a safe-direction allow, a read-only default), not the tuned ruleset that
+# took many real incidents to harden. That ruleset is intentionally not shipped here.
+#
+# This file is the enforcement point for Tau's non-negotiable rules. It is deliberately kept
+# outside the governed self-upgrade pipeline — nothing Tau proposes, and no reviewer agent vote,
+# may modify this file. Edits here are manual and out-of-band only.
+#
+# Evaluation: rules are checked top-to-bottom, first match wins (fnmatch-style globs on
+# server/tool name). If nothing matches, `default_effect` applies.
+#
+# effect: allow | deny | require_approval
+
+default_effect: allow
+
+rules:
+  # Tau may never act against itself or its own safety stack without a human in the loop.
+  - id: no-self-destruct
+    server: "*"
+    tool: "*shutdown*"
+    effect: require_approval
+    reason: "Shutdown-class actions on any system require explicit signed user approval."
+
+  - id: no-cdg-self-modification
+    server: "*"
+    tool: "*cdg*"
+    effect: deny
+    reason: "The Core Directive Guard ruleset cannot be modified through any tool call, ever."
+
+  - id: security-lockdown-exit-needs-approval
+    server: "security-mcp-server"
+    tool: "exit_lockdown"
+    effect: require_approval
+    reason: "Exiting lockdown after a detected intrusion requires explicit human authorization."
+
+  - id: security-lockdown-enter-is-safe
+    server: "security-mcp-server"
+    tool: "enter_lockdown"
+    effect: allow
+    reason: "Entering lockdown is a fail-safe direction and does not require approval."
+
+  - id: destructive-actions-need-approval
+    server: "*"
+    tool: "*destroy*"
+    effect: require_approval
+    reason: "Destroy-class actions require explicit signed user approval, on any domain server."

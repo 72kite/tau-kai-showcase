@@ -1,0 +1,13 @@
+{
+  "name": "tau-admin-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tauri desktop shell for the admin control panel (Phase 40) - wraps packages/admin-frontend, does not fork it. Separate app/identifier/keychain-service from tau-desktop (the kiosk client) - deliberately, since the two have nothing in common except being Tauri shells around this project's UIs.",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

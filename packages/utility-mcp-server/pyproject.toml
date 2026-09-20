@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "utility-mcp-server"
+version = "0.1.0"
+description = "Utility MCP server for Project Tau: time, system status, and self-knowledge"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.6.0,<2.0.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0",
+    # IANA tz database for zoneinfo. Windows ships no system tzdb, so without this
+    # TAU_TIMEZONE would silently fall back to local time on a Windows host (Linux/Docker
+    # already have it). Bundling it makes the tz feature behave identically everywhere.
+    "tzdata>=2024.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

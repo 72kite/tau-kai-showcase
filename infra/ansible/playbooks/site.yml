@@ -1,0 +1,8 @@
+---
+# Runs every Ansible playbook in dependency order. Equivalent to running each of
+# 01 -> 02 -> 04 -> 05 individually (see infra/README.md's apply order for why, and for the
+# Terraform/k3s-manifest/Vault steps that must happen in between 02 and 04).
+- import_playbook: 01-proxmox-hardening.yml
+- import_playbook: 02-k3s-install.yml
+- import_playbook: 04-ollama-node.yml
+- import_playbook: 05-voice-node.yml

@@ -1,0 +1,36 @@
+# nodeSelector targets the node labeled by ../../ansible/playbooks/05-voice-node.yml.
+# faster-whisper (CTranslate2) chosen over whisper.cpp for CPU-only home-lab speed
+# (see infra/README.md tool-choice table). "small" model balances latency vs. accuracy.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whisper
+  namespace: voice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: whisper
+  template:
+    metadata:
+      labels:
+        app: whisper
+    spec:
+      nodeSelector:
+        tau-role: voice
+      containers:
+        - name: whisper
+          image: fedirz/faster-whisper-server:latest-cpu
+          env:
+            - name: WHISPER__MODEL
+              value: "Systran/faster-whisper-small"
+          ports:
+            - name: http
+              containerPort: 8000
+          volumeMounts:
+            - name: models
+              mountPath: /root/.cache
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: whisper-models

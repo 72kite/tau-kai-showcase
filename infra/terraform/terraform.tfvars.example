@@ -1,0 +1,26 @@
+# Copy to terraform.tfvars (gitignored) and fill in real values.
+# Never commit terraform.tfvars.
+
+proxmox_api_url          = "https://pve.example.lan:8006/"
+proxmox_api_token_id     = "terraform@pve!terraform"
+proxmox_api_token_secret = "REPLACE_ME"
+proxmox_tls_insecure     = true
+proxmox_node_name        = "pve"
+
+ssh_public_key = "ssh-ed25519 AAAA... tau-infra"
+
+vlan_ids = {
+  management = 10
+  core_agent = 20
+  iot        = 30
+  camera     = 40
+}
+
+network_bridge = "vmbr0"
+vm_storage_pool = "local-lvm"
+
+k3s_server_count = 1
+k3s_agent_count  = 2
+
+enable_ollama_gpu_passthrough = false
+# ollama_gpu_pci_id           = "0000:01:00.0"

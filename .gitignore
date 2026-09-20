@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Secrets and runtime state (each package also ignores its own; this is the repo-wide net)
+.env
+data/
+
+# Host-specific compose overrides (e.g. a physical camera device path) - Docker Compose auto-loads
+# this alongside docker-compose.yml with no -f flag needed, same "lives only on the server, never
+# travels through git push-to-deploy" treatment as tau-core/.env.
+docker-compose.override.yml
+
+# Editor
+.vscode/
+
+# Node (frontend)
+node_modules/
+
+# Rust (packages/tau-desktop's Tauri shell)
+target/
+
+# Local bring-up / build artifacts (Docker Desktop installer, compose/model-pull logs)
+*.log
+DockerDesktopInstaller.exe
+
+# Model/tool-selection stress-test outputs (eval_tool_selection.py) - machine-specific, regenerated
+eval_*.json
+
+# Frontend visual-check screenshots (generated, look-at-it artifacts, not source)
+packages/frontend/scripts/__screenshots__/
+
+# Tailscale auth keys / any exported secrets used by the deployment (never commit these)
+*.authkey
+tailscale-authkey*
+secrets.local.*

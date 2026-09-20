@@ -1,0 +1,90 @@
+# infra/ — Project Tau Phase 0
+
+Infrastructure-as-code for [Phase 0](../project-tau-plan.md#3-phase-0--infrastructure-foundation-weeks-12) of Project Tau: the Proxmox/k3s/Vault/observability/Ollama/voice substrate that Tau Core (Phase 1, already built in [`tau-core/`](../tau-core/)) will eventually run on.
+
+**This directory is code only.** Nothing here has been applied to real hardware — it was written without network access to any Proxmox host. You (the operator) apply it against your own homelab and verify it with the smoke test before treating any Phase 0 checklist item as done.
+
+## Prerequisites
+
+- A Proxmox VE host you control, with a node name you know (`pvesh get /nodes`).
+- A dedicated `terraform@pve` user + scoped API token (not root): Datacenter > Permissions > API Tokens > Add.
+- CLIs on your workstation: `terraform` (or `opentofu`) >= 1.7, `ansible` >= 2.16, `kubectl`, `helm`, `vault`, `jq`.
+- An SSH keypair for Ansible to use (public half goes in `terraform.tfvars`).
+
+## Directory map
+
+| Path | Purpose |
+|---|---|
+| `terraform/` | Proxmox SDN VLANs, k3s + Ollama VMs, datacenter firewall rules |
+| `ansible/` | Host hardening, k3s install, Ollama install, voice-node prep |
+| `k3s/bootstrap/` | Namespaces shared by everything below |
+| `k3s/vault/` + `vault/` | Vault StatefulSet + Kubernetes-auth policies/bootstrap scripts |
+| `k3s/registry/` | Self-hosted `registry:2` behind Traefik |
+| `k3s/observability/` | kube-prometheus-stack + Loki + Promtail Helm values, starter Grafana dashboard |
+| `ollama/` + `k3s/ollama/` | Model picks/pull script, in-cluster DNS pointing at the external Ollama VM |
+| `k3s/voice/` | Piper (TTS) + faster-whisper (STT) Deployments |
+| `k3s/smoke-test/` + `scripts/` | Proves the Section 3 exit criteria |
+
+## Apply order
+
+1. `cd terraform && terraform init && terraform apply` (using your own `terraform.tfvars`, copied from `terraform.tfvars.example`) — creates the VLANs, k3s VMs, and Ollama VM.
+   - If your provider version doesn't support the SDN resources in `proxmox_network.tf`, create the VLANs by hand first (instructions in that file's header comment) and remove those resources.
+2. `terraform output` the VM IDs, resolve their IPs (Proxmox UI or your DHCP leases), and fill in `ansible/inventory/hosts.yml` (copied from `hosts.yml.example`) and `ansible/group_vars/all.yml` (copied from `all.yml.example`).
+3. `ansible-playbook playbooks/01-proxmox-hardening.yml` — hardens the Proxmox host. **2FA enrollment is a manual step** the playbook only reminds you about (Datacenter > Permissions > Two Factor).
+4. `ansible-playbook playbooks/02-k3s-install.yml` — installs k3s server+agents, fetches `k3s/kubeconfig` back to your workstation.
+5. `kubectl --kubeconfig k3s/kubeconfig apply -f k3s/bootstrap/00-namespaces.yaml`
+6. Vault:
+   - `kubectl apply -f k3s/vault/` (after creating the `vault-tls` secret — see comment in `k3s/vault/statefulset.yaml` for the `openssl`/`kubectl create secret tls` one-liner)
+   - `vault/scripts/vault-init.sh` (or `.ps1`) — once only; move the resulting `vault-unseal-keys.json` somewhere safe
+   - `vault/scripts/vault-unseal.sh`
+   - `vault/scripts/configure-k8s-auth.sh` — enables Kubernetes auth, writes the `tau-core` policy/role
+7. `kubectl apply -f k3s/registry/` (after creating `registry-htpasswd` per `htpasswd-secret.SAMPLE.yaml`'s instructions)
+8. Observability (Helm):
+   - `helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack -n observability -f k3s/observability/kube-prometheus-stack-values.yaml`
+   - `helm upgrade --install loki grafana/loki -n observability -f k3s/observability/loki-values.yaml`
+   - `helm upgrade --install promtail grafana/promtail -n observability -f k3s/observability/promtail-values.yaml`
+   - `kubectl apply -f k3s/observability/grafana-ingress.yaml -f k3s/observability/grafana-dashboards-configmap.yaml`
+9. `ansible-playbook playbooks/04-ollama-node.yml` — installs Ollama, pulls the default models (`ollama/models.md`)
+10. `kubectl apply -f k3s/ollama/external-endpoint.yaml` (edit the IP first to match your Ollama VM)
+11. `ansible-playbook playbooks/05-voice-node.yml` then `kubectl apply -f k3s/voice/`
+12. `vault/scripts/seed-example-secret.sh`, then `scripts/smoke-test.sh` (or the `.ps1` equivalents) — proves the exit criteria below.
+
+`ansible/playbooks/site.yml` chains steps 3, 4, 9, 11 together; the Terraform/kubectl/Helm steps between them still have to happen in between.
+
+## Secrets handling policy
+
+Never commit a file with real credentials. Every file that needs one has a checked-in placeholder twin, gitignored once you fill it in for real:
+
+- `terraform/terraform.tfvars.example` → `terraform.tfvars`
+- `ansible/inventory/hosts.yml.example` → `hosts.yml`
+- `ansible/group_vars/*.yml.example` → `group_vars/*.yml`
+- `k3s/registry/htpasswd-secret.SAMPLE.yaml` → created via `kubectl create secret`, never hand-edited
+- `vault/scripts/vault-unseal-keys.json` — generated by `vault-init`, never created by hand
+- `k3s/kubeconfig` — fetched by Ansible, never committed
+
+## Mapping to project-tau-plan.md Section 3
+
+| Checklist item | Implemented by |
+|---|---|
+| Proxmox hardening (VLANs, 2FA, per-service API tokens) | `terraform/proxmox_network.tf`, `providers.tf` (token auth), `ansible/roles/proxmox_hardening/` |
+| k3s cluster in Proxmox VMs/LXCs | `terraform/proxmox_vms.tf`, `ansible/roles/k3s_server/`, `ansible/roles/k3s_agent/` |
+| Container registry | `k3s/registry/` |
+| Secrets manager | `k3s/vault/`, `vault/policies/`, `vault/scripts/` |
+| Central logging/observability | `k3s/observability/` |
+| Network segmentation | `terraform/proxmox_network.tf`, `proxmox_firewall.tf` |
+| Ollama + initial models | `terraform/proxmox_vms.tf` (Ollama VM), `ansible/playbooks/04-ollama-node.yml`, `ollama/` |
+| Piper + Whisper | `k3s/voice/`, `ansible/playbooks/05-voice-node.yml` |
+
+**Exit criteria** (quoted from Section 3): *"you can spin up/tear down a k3s pod, pull a secret from Vault, and get a round-trip response from Ollama — all before Tau's brain exists."* Run `scripts/smoke-test.sh` (or `.ps1`) after completing the apply order above — it checks all three and prints PASS/FAIL for each.
+
+## What this does NOT do
+
+- No CI/CD is added — the repo has none yet and none was requested.
+- No Phase 2 MCP servers (`proxmox-mcp-server`, etc.) are deployed; this is Phase 0 only.
+- GPU passthrough for Ollama is optional and disabled by default (`enable_ollama_gpu_passthrough = false`); enabling it requires host-level IOMMU/vfio-pci setup this repo doesn't automate.
+- The Proxmox SDN/firewall Terraform resources may not match your exact Proxmox version's provider schema — both files document a manual GUI fallback.
+- No changes were made to `tau-core/` — its `SecretsProvider` interface already anticipates Vault; implementing a `VaultSecretsProvider` class is future work, not part of this scaffold.
+
+## Checkbox policy
+
+The Phase 0 checkboxes in `../project-tau-plan.md` remain **unchecked** by this work. Only check them off — in a separate, later commit — after you've applied this against real hardware and `scripts/smoke-test.sh` passes all three checks.

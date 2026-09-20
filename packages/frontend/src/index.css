@@ -1,0 +1,168 @@
+/* Theme tokens (Phase 6.C dark mode). The whole UI is two colors - ink on paper - so a real
+   light/dark theme is just swapping what those two are. --*-rgb variants back the rgba() uses.
+   Light is the default; :root[data-theme="dark"] is stamped on <html> by useTheme. */
+:root {
+  --paper: #ffffff;
+  --ink: #000000;
+  --paper-rgb: 255, 255, 255;
+  --ink-rgb: 0, 0, 0;
+  --muted: #666666;
+  /* The quietest legible tier - for elements that want to read as dimmer than --muted (footer
+     build stamp, transcript speaker tag, a toolbar stat's secondary value). A flat opacity used
+     to do this job (0.5-0.6 on --muted or --ink text) but that COMPOUNDS with whatever it's
+     layered on, and axe-core caught it (2026-09-12): the composited result on .response-speaker
+     was 2.29:1 against white, nowhere near WCAG AA's 4.5:1 floor for text this size. --faint is a
+     single real color calibrated to clear 4.5:1 against --paper on its own, so "quiet" no longer
+     depends on what opacity layer happens to sit on top of it.
+  */
+  --faint: #707070;
+}
+
+:root[data-theme="dark"] {
+  /* Not pure black/white: a hair off each keeps the e-ink calm without glare on a dark room's
+     tablet. Still stark and gradient-free. */
+  --paper: #0d0d0d;
+  --ink: #e8e8e8;
+  --paper-rgb: 13, 13, 13;
+  --ink-rgb: 232, 232, 232;
+  --muted: #9a9a9a;
+  --faint: #808080;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  /* Kiosk deployment (project-tau-plan.md Phase 3): no tap-highlight flash, no accidental
+     text selection from a stray touch, no browser-native pull-to-refresh/overscroll bounce. */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: 'Roboto Mono', 'JetBrains Mono', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: 0.05em;
+  overflow: hidden;
+  /* Extend under notches/home-indicator safe areas rather than leaving a dead white bar. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+/* E-ink aesthetic: stark black/white, no gradients or shadows */
+#root {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  background: var(--paper);
+}
+
+/* Remove all default shadows and glows */
+* {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+
+/* High-contrast text */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Roboto Mono', monospace;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 0.5em;
+  margin-bottom: 1em;
+}
+
+/* Grid-aligned layout */
+main {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  gap: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Transitions should be crisp, no easing */
+* {
+  transition: all 0.1s step-start;
+}
+
+/* Cross-hatching pseudo-depth (instead of gradients) */
+.card {
+  border: 2px solid var(--ink);
+  padding: 1em;
+  background: var(--paper);
+  position: relative;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image:
+    repeating-linear-gradient(45deg, transparent, transparent 2px, var(--ink) 2px, var(--ink) 3px),
+    repeating-linear-gradient(-45deg, transparent, transparent 2px, var(--ink) 2px, var(--ink) 3px);
+  background-size: 8px 8px;
+  opacity: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+/* SVG stroke animations: "draw" effect */
+svg line, svg path, svg polyline, svg polygon {
+  stroke: var(--ink);
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Dark mode: LLM/technical drawings hardcode black strokes (the drawing contract in
+   agent.py mandates #000000), so a theme variable can't reach them - invert the whole drawing
+   surface instead. The container selector + !important beats the global `* { filter:none }`
+   because it's more specific. Black strokes on transparent become white on the dark paper. */
+:root[data-theme="dark"] .design-svg-wrap svg,
+:root[data-theme="dark"] .recognition-card svg {
+  filter: invert(1) !important;
+}
+
+@keyframes draw {
+  from {
+    stroke-dashoffset: 1000;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.draw-animate {
+  animation: draw 2s ease-in-out forwards;
+}
+
+/* Scrollbar styling (if needed) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--paper);
+  border: 1px solid var(--ink);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ink);
+  border: 1px solid var(--ink);
+}

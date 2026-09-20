@@ -1,0 +1,151 @@
+/* Phase 6.F response surface: the latest exchange, rendered beside the atom inside the atom's own
+   box. Fades/slides in when Tau replies and out ~30s later (App.jsx owns the timer). No borders or
+   bubbles - this reads as text on paper, not as a panel, so the atom stays the only object on the
+   stage. */
+
+.response-surface {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.75em;
+  min-width: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 1em 1.5em 1em 0.5em;
+  color: var(--ink);
+  transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+}
+
+.response-surface.shown {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.response-surface.hidden {
+  opacity: 0;
+  transform: translateX(1.5em);
+  pointer-events: none;
+}
+
+.response-heard {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+  /* Not opacity (2026-09-12): it composited --muted down to 2.29:1 against paper on
+     .response-speaker, under WCAG AA's 4.5:1 floor - see index.css's --faint docstring. The
+     "heard line reads quieter than the reply" intent now lives in each child's own real color
+     instead, at whatever depth actually clears contrast: --faint on the speaker tag (already
+     bold/letter-spaced/9px, its own attention-carrying weight), --muted on the transcript text. */
+}
+
+.response-speaker {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--faint);
+  flex: 0 0 auto;
+}
+
+.response-heard-text {
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  word-wrap: break-word;
+  color: var(--muted);
+}
+
+/* Memory-recall provenance: what long-term recall surfaced for this turn (see the UI batch 2
+   note in project-tau-plan.md §6). Context about the answer, not part of it. */
+.response-memory {
+  font-size: 11px;
+  font-style: italic;
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  opacity: 0.6;
+  border-left: 1px dotted var(--ink);
+  padding-left: 0.6em;
+}
+
+/* The karaoke line itself: one flowing paragraph, unsung words held back at low contrast and
+   coming up to full ink as the sweep passes. */
+.response-reply {
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-size: clamp(15px, 2.1vw, 21px);
+  line-height: 1.65;
+  letter-spacing: 0.01em;
+  word-wrap: break-word;
+}
+
+/* Phase 50: was `opacity: 0.28`, found the same way --faint's siblings above were (2026-09-12) -
+   it composited --ink down to 1.98:1 against paper, under WCAG AA's 4.5:1 floor, and stayed
+   broken because a harness bug meant this scene's axe-core pass had never actually run against
+   the settled app (see visual-check.mjs's boot-screen wait). --muted reads clearly dimmer than
+   full ink while clearing contrast on its own, so the karaoke reveal still works - unsung words
+   are visibly quieter than sung ones - without ever rendering as a real contrast failure,
+   including mid-transition (a color transition has no intermediate opacity to get caught by). */
+.karaoke-word {
+  color: var(--muted);
+  transition: color 0.35s ease-out;
+}
+
+.karaoke-word.sung {
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .karaoke-word {
+    color: var(--ink);
+    transition: none;
+  }
+}
+
+/* The neuron field takes whatever vertical room the exchange text isn't using, so it fills the
+   space the atom opened rather than collapsing to its content height. */
+.response-surface .neuron-field {
+  flex: 1;
+  min-height: 120px;
+}
+
+/* Phase 40 "visual answer card": a picture attached to the reply. One deliberate exception to
+   "no borders or bubbles" above - a photo genuinely needs a boundary against the page background
+   the way text doesn't, so it gets the thinnest border this palette uses rather than none. Capped
+   height so a tall image can't push the reply text or the atom itself out of view. */
+.response-image {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--ink);
+  text-decoration: none;
+  color: inherit;
+}
+
+.response-image img {
+  display: block;
+  max-width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+}
+
+.response-image-caption {
+  display: block;
+  padding: 0.4em 0.6em;
+  border-top: 1px solid var(--ink);
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+.response-pending {
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-size: 20px;
+  opacity: 0.4;
+  animation: response-pending-blink 1.2s step-start infinite;
+}
+
+@keyframes response-pending-blink {
+  0%, 49% {
+    opacity: 0.15;
+  }
+  50%, 100% {
+    opacity: 0.5;
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capability for the main window. store_admin_token/get_admin_token are app-defined commands (not a plugin's), so they need no ACL entry - same reasoning as tau-desktop's own keychain commands.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

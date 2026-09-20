@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "security-mcp-server"
+version = "0.1.0"
+description = "Security MCP server for Project Tau"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.6.0,<2.0.0",
+    "python-dotenv>=1.0.0",
+    "cryptography>=42",
+    "argon2-cffi>=23.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

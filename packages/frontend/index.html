@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover: extend under notches/rounded corners on the kiosk tablet
+         deployment (project-tau-plan.md Phase 3). Deliberately NOT setting
+         maximum-scale/user-scalable=no here - that would also block assistive zoom, not just
+         accidental pinch. Gesture suppression for kiosk use lives in useKioskMode.js instead,
+         which only prevents pinch/double-tap-zoom gestures, not zoom accessibility features. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- "Add to Home Screen" standalone mode, for older iPad Safari versions that predate the
+         element Fullscreen API (see useKioskMode.js's fallback comment). -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#000000" />
+    <!-- Project Archer (Phase 5 mobile companion): installable PWA manifest + icons, so this
+         same frontend can be "Add to Home Screen"-ed on a phone, not just the kiosk tablet. -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <title>Tau — Project Tau UI</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

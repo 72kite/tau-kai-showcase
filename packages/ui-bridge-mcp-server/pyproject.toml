@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ui-bridge-mcp-server"
+version = "0.1.0"
+description = "UI bridge MCP server for Project Tau — aggregates state from domain servers"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.6.0,<2.0.0",
+    "python-dotenv>=1.0.0",
+    # Phase 10: decrypts phase4's proposals.json when it's encrypted (crypto_store.py) - read
+    # directly off the shared phase4-data volume, not over MCP.
+    "argon2-cffi>=23.1",
+    "cryptography>=42",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

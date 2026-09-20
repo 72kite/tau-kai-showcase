@@ -1,0 +1,44 @@
+# Helm values for prometheus-community/kube-prometheus-stack.
+# Install with:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#     -n observability -f kube-prometheus-stack-values.yaml
+#
+# k3s doesn't expose etcd/kube-controller-manager/kube-scheduler metrics the same way kubeadm
+# clusters do, so those component monitors are disabled to avoid permanently-firing "target
+# down" alerts on a stack this chart otherwise wires up automatically.
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+
+grafana:
+  persistence:
+    enabled: true
+    size: 5Gi
+  # Change the default password before exposing Grafana beyond localhost.
+  adminPassword: "REPLACE_ME"
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki.observability.svc.cluster.local:3100
+      access: proxy

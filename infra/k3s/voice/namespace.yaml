@@ -1,0 +1,7 @@
+# Separate namespace so Piper/Whisper can be independently restarted/network-policed, consistent
+# with project-tau-plan.md's "independently killable" MCP-server philosophy - these aren't MCP
+# servers themselves yet, but Phase 2's voice-mcp-server will call into them.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: voice

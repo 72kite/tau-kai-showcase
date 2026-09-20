@@ -1,0 +1,511 @@
+:root {
+  color-scheme: dark;
+  --bg: #14161a;
+  --panel-bg: #1c1f26;
+  --panel-bg-raised: #21242c;
+  --row-hover: #262a34;
+  --border: #33384a;
+  --border-soft: #262a35;
+  --text: #e8e9ec;
+  --muted: #9aa0b0;
+  --accent: #6ea8ff;
+  --accent-dim: #3d5a86;
+  --danger: #ff6e6e;
+  --danger-dim: #6b2f34;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  background: var(--accent);
+  color: #0a0c10;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.4em 0.9em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.12s ease, transform 0.12s ease;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* button is the implicit primary/accent action (Approve, Set, Continue, Sign in) - these two
+   variants exist for actions that need to read as distinctly non-default, same monochrome-icon-
+   language reasoning as the rest of this project's UI: colour carries meaning, not decoration. */
+.button-primary {
+  background: var(--accent);
+  color: #0a0c10;
+}
+
+.button-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger-dim);
+}
+
+.button-danger:hover:not(:disabled) {
+  background: var(--danger-dim);
+  filter: none;
+}
+
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+.login-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9em;
+  width: 320px;
+  padding: 2em;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.login-form h1 {
+  margin: 0 0 0.25em;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+
+.login-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.login-form input {
+  padding: 0.5em;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+}
+
+.login-error {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1em 1.5em;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.dashboard-header h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.dashboard-header > div {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+}
+
+.dashboard-header > div > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.dashboard-body {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.5em 1em 2em;
+}
+
+.dashboard-section {
+  margin-top: 1.5em;
+}
+
+.dashboard-section:first-child {
+  margin-top: 1em;
+}
+
+.dashboard-section-title {
+  margin: 0 0.5em 0.5em;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1em;
+  padding: 0.75em 0.5em;
+}
+
+.log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  max-height: 320px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.log-list li {
+  display: flex;
+  gap: 0.6em;
+  padding: 0.3em 0.4em;
+  border-bottom: 1px solid var(--border);
+}
+
+.log-time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.log-speaker {
+  font-weight: 700;
+  min-width: 3.5em;
+}
+
+.log-device {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.log-text {
+  flex: 1;
+  word-break: break-word;
+}
+
+.panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1em 1.25em;
+  box-shadow: var(--shadow);
+}
+
+.panel h2 {
+  margin: 0 0 0.75em;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.panel-error {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.panel-note {
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  flex-wrap: wrap;
+}
+
+.panel-dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.4em 1em;
+  margin: 0;
+}
+
+.panel-dl dt {
+  color: var(--muted);
+}
+
+.panel-dl dd {
+  margin: 0;
+}
+
+.panel-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.panel-table th,
+.panel-table td {
+  text-align: left;
+  padding: 0.5em 0.4em;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.panel-table th {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.panel-table tbody tr:hover {
+  background: var(--row-hover);
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.panel-table select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.25em 0.4em;
+}
+
+.activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  max-height: 320px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.activity-list li {
+  display: flex;
+  gap: 0.75em;
+  padding: 0.3em 0.4em;
+  border-bottom: 1px solid var(--border);
+}
+
+.activity-time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-call {
+  flex: 1;
+}
+
+.activity-outcome {
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.outcome-executed .activity-outcome {
+  color: var(--accent);
+}
+
+.outcome-denied .activity-outcome {
+  color: var(--danger);
+}
+
+.outcome-pending .activity-outcome,
+.outcome-clarify .activity-outcome {
+  color: var(--muted);
+}
+
+.reveal-token {
+  display: block;
+  word-break: break-all;
+  background: var(--bg);
+  padding: 0.5em;
+  border-radius: var(--radius-sm);
+}
+
+.wakeword-list,
+.drafts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.wakeword-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5em;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.12s ease;
+}
+
+.wakeword-list li.current {
+  border-color: var(--accent);
+}
+
+.tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0.2em 0.5em;
+  background: var(--accent);
+  color: #0a0c10;
+  border-radius: 3px;
+}
+
+.drafts-list li {
+  padding: 0.6em;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.draft-title {
+  font-weight: 600;
+  margin: 0 0 0.25em;
+}
+
+.draft-owner {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* --- Approvals (Phase 41) ------------------------------------------------------------------- */
+
+.panel-approvals.has-pending {
+  border-color: var(--danger-dim);
+}
+
+.badge-count {
+  background: var(--danger);
+  color: #0a0c10;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.2em 0.5em;
+  border-radius: 999px;
+}
+
+.approvals-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+
+.approvals-empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.approval-card {
+  padding: 0.75em 1em;
+  background: var(--panel-bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.approval-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+  font-size: 13px;
+}
+
+.approval-tool {
+  font-weight: 700;
+}
+
+.approval-server {
+  color: var(--muted);
+}
+
+.approval-time {
+  margin-left: auto;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.approval-reason {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.approval-args {
+  font-size: 12px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 0.5em 0.75em;
+}
+
+.approval-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+}
+
+.approval-requester {
+  color: var(--muted);
+  font-size: 12px;
+}

@@ -1,0 +1,10 @@
+# Force LF regardless of platform for anything with a shebang or that gets deployed straight to a
+# Linux host - a Windows checkout with core.autocrlf=true (this project's default) silently
+# converts these to CRLF, which breaks the shebang line (#!/usr/bin/env bash\r fails) the moment
+# the file is scp'd/copied to Linux as-is. Found while adding infra/proxmox-backup-encryption/'s
+# scripts, which are deployed exactly that way; applies equally to every existing .sh script here
+# (scripts/bring-up-tau.sh etc.), which had the identical latent risk with no .gitattributes at
+# all until now.
+*.sh text eol=lf
+*.service text eol=lf
+*.timer text eol=lf

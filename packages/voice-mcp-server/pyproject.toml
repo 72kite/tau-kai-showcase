@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "voice-mcp-server"
+version = "0.1.0"
+description = "Voice (Piper TTS + faster-whisper STT) MCP server for Project Tau (Phase 2)"
+requires-python = ">=3.11"
+dependencies = [
+  "mcp>=1.6.0,<2.0.0",
+  "httpx>=0.27",
+  "python-dotenv>=1.0",
+  "wyoming>=1.5.0",
+  "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2",
+  "pytest-asyncio>=0.23",
+]
+# Speaker-ID (enroll_voiceprint/identify_speaker) - multi-GB torch download. CPU torch is fine;
+# SPKREC_DEVICE=cuda to use a GPU.
+speaker-id = [
+  "speechbrain>=1.0",
+  "torch>=2.1",
+  "av>=11",
+]
+# Local wake word (detect_wake_word) - openWakeWord's on-device ONNX models.
+wake-word = [
+  "openwakeword>=0.6",
+  "av>=11",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/voice_mcp_server"]
+# hey_tau.onnx is a binary asset that lives inside the package. hatchling honours VCS ignore
+# rules when collecting files, so list it explicitly - otherwise a future "*.onnx" line in a
+# .gitignore would silently ship a wheel whose default wake-word model is missing, and the
+# server would quietly fall back to "hey_jarvis" (the wrong phrase) at runtime.
+artifacts = ["src/voice_mcp_server/models/*.onnx"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

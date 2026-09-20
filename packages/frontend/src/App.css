@@ -1,0 +1,365 @@
+.app {
+  display: grid;
+  /* Toolbar, stage, footer. 6.F reduced this to two rows (the transcript row and old status bar
+     are gone - the response lives inside the atom's own box now); the footer is a hairline
+     identity strip, not a return of the status bar. */
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  /* minmax(0, 1fr), not a bare 1fr: a plain `1fr` track has an implicit `auto` MINIMUM, so a
+     child that won't shrink (the top-bar's tools + clock at their min-content) floors the whole
+     column at ~460px and clips everything off the right on a phone. minmax(0, ...) lets the
+     column shrink to the viewport, so children fit or scroll instead of overflowing. */
+  grid-template-columns: minmax(0, 1fr);
+  width: 100vw;
+  max-width: 100%;
+  height: 100vh;
+  height: 100dvh; /* iOS Safari's real visible viewport, excluding the address bar */
+  background: var(--paper);
+  color: var(--ink);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Phase 27.D: the Tauri desktop shell's first-run gate, shown in place of the whole kiosk layout
+   until a tau-core host is configured (App.jsx's needsConnectionSetup). `.app`'s grid layout is
+   irrelevant here - overridden to a simple centered column since there's no toolbar/stage/footer
+   to arrange yet. */
+.connection-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  text-align: center;
+  padding: 2rem;
+}
+
+/* The stage. By default the atom's box is the whole thing (6.F: atom takes center stage); only an
+   active design splits it. The 2px gap plus the container's ink background render as a clean
+   divider between the two, whether they're columns (wide) or rows (narrow, see breakpoint below) -
+   simpler and more robust than each panel managing its own conditional border. */
+.main-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  background: var(--ink);
+  min-height: 0;
+  min-width: 0;
+}
+
+.main-stage.with-design {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+/* The atom's box: atom centered by default, sliding aside to make room for the response surface
+   beside it when there's something to say. Both live in this one box - the response is not a
+   separate panel, and the atom is never unmounted or paused, only moved. */
+.atom-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 0fr;
+  align-items: center;
+  min-height: 0;
+  min-width: 0;
+  background: var(--paper);
+  position: relative;
+  transition: grid-template-columns 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.atom-stage.with-response {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+}
+
+/* Portrait/narrow: stack the response under the atom rather than squeezing both into a thin
+   column - the atom keeps a usable size and the karaoke line keeps a readable measure. */
+@media (max-width: 700px) {
+  .atom-stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 0fr;
+    transition: grid-template-rows 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .atom-stage.with-response {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+/* Phase 6.C: the atom plus its model-activity readout, as a column so the readout sits directly
+   under the atom. */
+.atom-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+  background: var(--paper);
+  position: relative;
+}
+
+/* Phase 6.C ambient sensor cues: status by light, not words. A soft hue bleeds down from the top
+   edge near the atom - green while listening, blue while a camera is in use. Implemented as a
+   gradient (not a glow) because box-shadow is globally disabled; pointer-events:none so it never
+   blocks the atom's click-to-invoke.
+
+   The state classes live on .atom-stage (which owns the sensor state) but the hue is painted on
+   .atom-column, deliberately: the stage spans the full width since 6.F, and a hue across all of it
+   reads as a banner rather than as light near the atom. */
+.atom-column::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 130px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out, background 0.5s ease-in-out;
+  z-index: 2;
+}
+
+/* Radial, not linear: a linear gradient only fades downward, so it ends in hard vertical edges at
+   the column's sides - which reads as a coloured banner, especially in dark mode. A radial dome
+   anchored to the top centre feathers out in every direction, which is what "a soft hue" means.
+   The 50%/100% sizing is load-bearing: it makes the ellipse exactly as wide as the box's half-
+   width and as tall as the box, so the colour reaches zero precisely at the edges instead of
+   being cut off mid-gradient (which is what leaves a visible seam). */
+.atom-stage.sensor-listening .atom-column::before {
+  opacity: 1;
+  background: radial-gradient(
+    50% 100% at 50% 0%,
+    rgba(40, 200, 90, 0.32),
+    rgba(40, 200, 90, 0) 100%
+  );
+}
+
+/* Vision shows only when not already showing the listening cue, so the two don't fight. */
+.atom-stage.sensor-vision:not(.sensor-listening) .atom-column::before {
+  opacity: 1;
+  background: radial-gradient(
+    50% 100% at 50% 0%,
+    rgba(40, 120, 240, 0.32),
+    rgba(40, 120, 240, 0) 100%
+  );
+}
+
+/* Phase 17 follow-up window: a deliberately DIFFERENT hue from the green listening cue - a soft
+   violet - so "still here, keep talking briefly" never reads as a fresh wake. Fainter, too, since
+   it's a bonus window rather than an active command capture. */
+.atom-stage.sensor-followup:not(.sensor-listening) .atom-column::before {
+  opacity: 1;
+  background: radial-gradient(
+    50% 100% at 50% 0%,
+    rgba(150, 90, 230, 0.24),
+    rgba(150, 90, 230, 0) 100%
+  );
+}
+
+/* The follow-up readout: a label plus a bar that drains left-to-right over the window's real
+   duration (set inline off followupWindowMs). Sits just under the model-activity line. */
+.followup-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  z-index: 3;
+}
+
+.followup-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(150, 90, 230, 0.85);
+}
+
+.followup-bar {
+  display: block;
+  width: 120px;
+  height: 3px;
+  border-radius: 2px;
+  transform-origin: left center;
+  background: rgba(150, 90, 230, 0.9);
+  animation-name: followup-drain;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+/* Scale, not width, so it animates on the compositor (cheap) and the duration is driven purely by
+   the inline animation-duration = followupWindowMs. */
+@keyframes followup-drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .followup-bar {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+.atom-column .atom-container {
+  flex: 1;
+  min-height: 0;
+}
+
+.atom-column .model-activity {
+  flex: 0 0 auto;
+  padding-bottom: 0.6em;
+}
+
+/* Narrow / portrait tablets and phones: stack atom above design instead of side by side */
+@media (max-width: 820px) {
+  .main-stage.with-design {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+}
+
+/* 6.F: the response auto-hides after 30s, so there has to be *some* affordance saying it can come
+   back - a bare tap target with no mark is undiscoverable. Deliberately faint: it's a footnote on
+   the stage, not a button competing with the atom. */
+.recall-hint {
+  position: absolute;
+  bottom: 0.75em;
+  right: 0.9em;
+  z-index: 3;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  padding: 0.5em;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.recall-hint::before {
+  content: '↑ ';
+}
+
+.recall-hint:hover,
+.recall-hint:focus-visible {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* Panel styling - used inside SystemDrawer (devices/security/vision). These are no longer
+   positioned as a single overlay cell on top of the atom; they're regular flex/grid children
+   of the drawer's content area (see SystemDrawer.css). */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+  padding: 1.25em;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+}
+
+.panel-title {
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+}
+
+/* Manual-invoke fallback: shown only when SpeechRecognition isn't supported (see
+   useVoiceInvoke.js) and the user has tapped the atom - the only remaining way to give Tau a
+   command on a browser without voice support. 6.F: pinned to the bottom of the atom's box, over
+   the stage, since there's no transcript row to sit above any more. */
+.manual-invoke-form {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  gap: 0.5em;
+  padding: 0.5em;
+  border-top: 2px solid var(--ink);
+  background: var(--paper);
+}
+
+.manual-invoke-input {
+  flex: 1;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 14px;
+  padding: 0.6em 0.75em;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 44px;
+}
+
+.manual-invoke-submit {
+  min-width: 80px;
+  min-height: 44px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  font-family: 'Roboto Mono', monospace;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.voice-error-toast {
+  position: absolute;
+  top: 0.75em;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.5em 1em;
+  font-size: 12px;
+  font-family: 'Roboto Mono', monospace;
+  z-index: 60;
+  max-width: 90%;
+  text-align: center;
+}
+
+/* Full-viewport target shown while a file is dragged over the app. Pointer-events none so the
+   drop still lands on the root's handlers, not this overlay. */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 6px dashed var(--ink);
+  background: rgba(var(--paper-rgb), 0.92);
+  font-size: 24px;
+  font-weight: bold;
+  letter-spacing: 0.2em;
+  pointer-events: none;
+}
+
+.attach-note {
+  position: absolute;
+  bottom: 1.5em;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  padding: 0.4em 0.9em;
+  font-size: 12px;
+  font-family: 'Roboto Mono', monospace;
+  z-index: 60;
+  max-width: 90%;
+  text-align: center;
+}

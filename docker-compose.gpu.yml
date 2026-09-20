@@ -1,0 +1,60 @@
+# GPU overlay for the Project Tau stack. Layer it on top of docker-compose.yml:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+#
+# Requirements:
+#   - NVIDIA GPU + recent driver on the host.
+#   - Linux: nvidia-container-toolkit installed and configured
+#     (https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/).
+#   - Windows: Docker Desktop with the WSL2 backend + the NVIDIA driver's WSL CUDA support -
+#     `wsl -d docker-desktop nvidia-smi` should list your GPU before this will work.
+#   - Compose v2 reads `deploy.resources.reservations.devices` for `docker compose up` (no Swarm
+#     needed). Verify with `docker compose ... exec ollama nvidia-smi`.
+#
+# What gets the GPU:
+#   - ollama  : out of the box (the official image ships the CUDA runtime). This is the whole
+#               point - the 14b main model is night-and-day faster here vs. CPU.
+#   - whisper : rebuilt on a CUDA+cuDNN base (CTranslate2 loads cuDNN at runtime) and switched to
+#               device=cuda / float16.
+#
+# What deliberately stays on CPU:
+#   - voice-mcp-server's speaker-ID embedding: the ECAPA model is tiny (a few ms/clip on CPU) and
+#     the current image installs CPU torch wheels. Making SPKREC_DEVICE=cuda real means building
+#     that image against a CUDA torch wheel (torch --index-url .../cu121) + a GPU reservation -
+#     not worth it for this workload. Left as a documented knob, not enabled here.
+#   - vision-mcp-server's insightface/onnxruntime: same story - would need onnxruntime-gpu and a
+#     CUDA base. Snapshot/detect on a home cam volume is fine on CPU. Enable later if it matters.
+
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # gpu-only tuning: keep the model resident so the first token isn't paying a reload each turn.
+    environment:
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+
+  whisper:
+    build:
+      context: ./infra/whisper
+      dockerfile: ../../docker/whisper.Dockerfile
+      args:
+        # CUDA 12 + cuDNN runtime; CTranslate2 (faster-whisper's backend) dlopens cuDNN at load.
+        BASE_IMAGE: nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04
+        INSTALL_PYTHON: "1"
+    environment:
+      WHISPER_DEVICE: cuda
+      WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-float16}
+      # A bigger model is affordable on GPU; bump if you want the accuracy.
+      WHISPER_MODEL: ${WHISPER_MODEL:-small}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

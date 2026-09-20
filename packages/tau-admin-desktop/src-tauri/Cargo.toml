@@ -1,0 +1,28 @@
+[package]
+name = "tau-admin-desktop"
+version = "0.1.0"
+description = "Tauri desktop shell for the Tau admin control panel (Phase 40)"
+edition = "2021"
+rust-version = "1.77"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+# keyring 3.x ships NO default features - with none enabled it silently falls back to a no-op
+# mock store (set_password() returns Ok(()), get_password() always NoEntry) rather than a build
+# error. Same target-specific split as tau-desktop's own Cargo.toml, which found this the hard
+# way (verified by an actual round-trip test, not by the compiler accepting a bare `keyring = "3"`).
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+
+# Linux Secret Service (gnome-keyring/kwallet via D-Bus) - needs libdbus-1-dev at build time;
+# unverified like tau-desktop's own Linux path.
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["sync-secret-service"] }
+
+[[bin]]
+name = "tau-admin-desktop"
+path = "src/main.rs"

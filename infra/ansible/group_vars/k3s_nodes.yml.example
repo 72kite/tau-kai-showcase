@@ -1,0 +1,4 @@
+# Copy to group_vars/k3s_nodes.yml (gitignored).
+# Filled in by 02-k3s-install.yml after the first server node bootstraps; used by agents to join.
+k3s_server_address: "192.0.2.11" # tau-k3s-server-1's IP
+k3s_node_token: "REPLACE_ME_AFTER_SERVER_BOOTSTRAP"

@@ -1,0 +1,53 @@
+---
+- name: Install Ollama and pull default models
+  hosts: ollama_nodes
+  become: true
+  tasks:
+    - name: Check whether Ollama is already installed
+      ansible.builtin.stat:
+        path: /usr/local/bin/ollama
+      register: ollama_binary
+
+    - name: Install Ollama (native binary, no Docker layer needed on a single-purpose VM)
+      ansible.builtin.shell: |
+        set -o pipefail
+        curl -fsSL https://ollama.com/install.sh | sh
+      args:
+        executable: /bin/bash
+      when: not ollama_binary.stat.exists
+
+    - name: Ensure the systemd override directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/system/ollama.service.d
+        state: directory
+        mode: "0755"
+
+    - name: Ensure Ollama listens on all interfaces (so k3s can reach it, see ../../k3s/ollama/external-endpoint.yaml)
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/ollama.service.d/override.conf
+        content: |
+          [Service]
+          Environment=OLLAMA_HOST=0.0.0.0:11434
+      notify: reload and restart ollama
+
+    - name: Flush handlers before pulling models
+      ansible.builtin.meta: flush_handlers
+
+    - name: Copy the model-pull script
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../ollama/pull-models.sh"
+        dest: /usr/local/bin/tau-pull-models.sh
+        mode: "0755"
+
+    - name: Pull default models
+      ansible.builtin.command: /usr/local/bin/tau-pull-models.sh
+      environment:
+        OLLAMA_HOST: "http://127.0.0.1:11434"
+      changed_when: true
+
+  handlers:
+    - name: reload and restart ollama
+      ansible.builtin.systemd:
+        daemon_reload: true
+        name: ollama
+        state: restarted

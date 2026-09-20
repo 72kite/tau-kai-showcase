@@ -1,0 +1,47 @@
+# Picked up by the kube-prometheus-stack Grafana sidecar (grafana.sidecar.dashboards.label
+# = grafana_dashboard, set in kube-prometheus-stack-values.yaml). Queries Loki for tau-core's
+# JSON audit log lines once tau-core is deployed into k3s with an `app: tau-core` pod label
+# (Phase 2+ work - this dashboard is prepared ahead of that, per logging_setup.py's stated intent).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tau-core-audit-dashboard
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+data:
+  tau-core-audit.json: |
+    {
+      "title": "Tau Core - Audit Trail",
+      "uid": "tau-core-audit",
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "panels": [
+        {
+          "id": 1,
+          "title": "Tool call audit log",
+          "type": "logs",
+          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 0 },
+          "datasource": { "type": "loki", "uid": "Loki" },
+          "targets": [
+            {
+              "expr": "{app=\"tau-core\"} | json",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "CDG-blocked calls per minute",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 },
+          "datasource": { "type": "loki", "uid": "Loki" },
+          "targets": [
+            {
+              "expr": "sum(count_over_time({app=\"tau-core\"} | json | outcome=\"blocked\" [1m]))",
+              "refId": "A"
+            }
+          ]
+        }
+      ]
+    }

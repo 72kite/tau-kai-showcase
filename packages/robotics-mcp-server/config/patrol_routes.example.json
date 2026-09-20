@@ -1,0 +1,22 @@
+{
+  "routes": [
+    {
+      "name": "perimeter",
+      "description": "Full property perimeter walk, ~8 minutes at cruise speed.",
+      "waypoints": [
+        { "lat": 0.0, "lon": 0.0, "alt": 15 },
+        { "lat": 0.0001, "lon": 0.0, "alt": 15 },
+        { "lat": 0.0001, "lon": 0.0001, "alt": 15 },
+        { "lat": 0.0, "lon": 0.0001, "alt": 15 }
+      ]
+    },
+    {
+      "name": "driveway",
+      "description": "Front driveway and gate check, short low-altitude pass.",
+      "waypoints": [
+        { "lat": 0.00005, "lon": 0.0, "alt": 8 },
+        { "lat": 0.00005, "lon": 0.00003, "alt": 8 }
+      ]
+    }
+  ]
+}

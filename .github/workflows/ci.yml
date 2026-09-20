@@ -1,0 +1,291 @@
+# The workflow that actually runs (Phase 9, Tier 1 item 10).
+#
+# Until this existed, NOTHING ran on push or pull request. The only workflow was
+# phase4-ci-cd.yml, which is `workflow_dispatch`-only and requires a proposal_id, so ~430 tests
+# across 13 packages ran exactly when a human remembered to type `pytest` - and 7 of its 9 suites
+# were `|| true`, meaning even that couldn't fail. Two concrete things had been broken for
+# unknown lengths of time and were found only while writing this file:
+#   - vision-mcp-server's 4 camera tests errored on every run (patched a lazy import that has no
+#     module attribute), and behind that, returned a list where cv2 returns an ndarray;
+#   - the router defect that silently disabled all 77 tools (see project-tau-plan.md §10) lived
+#     for two days because the eval harness it would have shown up in was never run.
+#
+# Nothing here is `|| true`. A red run means the merge is wrong.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+# A new push to the same branch makes the previous run's answer irrelevant - don't pay for it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python tests (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    strategy:
+      # Don't cancel every other package because one failed: with 13 suites, seeing all the
+      # damage in one run beats bisecting it over several.
+      fail-fast: false
+      matrix:
+        package:
+          - tau-core
+          - memory-mcp-server
+          - research-mcp-server
+          - utility-mcp-server
+          - ui-bridge-mcp-server
+          - voice-mcp-server
+          - vision-mcp-server
+          - proxmox-mcp-server
+          - home-assistant-mcp-server
+          - security-mcp-server
+          - fabrication-mcp-server
+          - robotics-mcp-server
+          - phase4-upgrade-pipeline
+          # These three have real suites that no workflow ran until now - ~1,200 lines of tests
+          # producing zero signal. tau-admin-server in particular sits in front of every setting
+          # the admin panel can change.
+          - tau-admin-server
+          - wikipedia-mcp-server
+          - forgejo-mcp-server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install ${{ matrix.package }}
+        run: pip install -e "./packages/${{ matrix.package }}[dev]"
+
+      # tau-core's tests drive the REAL domain servers over stdio (that is the point of them -
+      # a mocked session can't die underneath you), so its suite needs the servers it spawns.
+      # Kept to exactly the ones its tests actually reference, so this stays a fast job rather
+      # than installing the world for every matrix leg.
+      - name: Install domain servers tau-core's tests spawn
+        if: matrix.package == 'tau-core'
+        run: pip install -e ./packages/ui-bridge-mcp-server -e ./packages/utility-mcp-server -e ./packages/memory-mcp-server
+
+      - name: pytest
+        working-directory: packages/${{ matrix.package }}
+        run: python -m pytest -q
+
+  frontend:
+    name: Frontend build + visual check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: packages/frontend/package-lock.json
+
+      - name: Install
+        working-directory: packages/frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: packages/frontend
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        working-directory: packages/frontend
+        run: npx playwright install --with-deps chromium
+
+      # Needs no backend at all: the harness intercepts every bridge route and serves fixtures,
+      # so this runs with no Ollama, no Docker, no GPU. It fails on console/page errors, failed
+      # requests and horizontal overflow - the unambiguously-broken things. Taste stays human.
+      - name: Visual check (light)
+        working-directory: packages/frontend
+        run: npm run visual-check
+
+      - name: Visual check (dark)
+        working-directory: packages/frontend
+        run: npm run visual-check:dark
+
+      # The screenshots are the actual product of that job - a human still has to look at them,
+      # and on a failure they are the only way to see what broke.
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-check-screenshots
+          path: packages/frontend/scripts/__screenshots__/
+          retention-days: 7
+
+  compose:
+    name: docker-compose validity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # 18 services, and a typo in any of them is invisible until a deploy. `config` parses,
+      # interpolates and validates the whole file without pulling a single image.
+      - name: Validate compose files
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.gpu.yml config --quiet
+
+  # Nothing scanned this repo for known-vulnerable dependencies or unsafe code patterns until the
+  # Phase 21 security audit, which found the frontend shipping a critical (vitest), a high
+  # (postcss path traversal) and a moderate (esbuild dev-server) advisory - none of them exotic,
+  # all of them findable by a tool that nobody was running. These jobs are the standing version of
+  # that audit, so the next one is caught by CI instead of by someone deciding to look.
+  dependency-audit:
+    name: Dependency vulnerabilities (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # Every package, in one environment: an advisory only matters against what actually ships,
+      # and the deployed stack is all 13 of these running together.
+      - name: Install all packages
+        run: |
+          for pkg in packages/*/pyproject.toml; do
+            pip install -e "$(dirname "$pkg")"
+          done
+
+      - name: pip-audit
+        run: |
+          pip install pip-audit
+          # PYSEC-2026-311 (chromadb): pre-auth RCE in the ChromaDB *server's* HTTP API, via
+          # /api/v2/tenants/{tenant}/databases/{db}/collections with trust_remote_code. Not
+          # reachable here - memory-mcp-server uses chromadb.PersistentClient (embedded, in-process,
+          # no HTTP listener) and the compose stack runs no Chroma service. There is also no fixed
+          # version to move to: 1.5.9 is the latest release as of 2026-07-28. Re-check this on the
+          # next chromadb bump and drop the ignore the moment a fix exists, or the day
+          # memory-mcp-server ever switches to chromadb.HttpClient - at which point it is live.
+          pip-audit --ignore-vuln PYSEC-2026-311
+
+  static-analysis:
+    name: Static analysis (bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: bandit
+        run: |
+          pip install bandit
+          # Medium severity and up, source only. Tests are excluded because they legitimately do
+          # things bandit flags (hardcoded fixture credentials, binding to a port); flagging them
+          # trains people to ignore the whole report, which is how a real finding gets missed.
+          # B104 (binding to 0.0.0.0) is skipped: every domain server does it deliberately in its
+          # streamable_http transport branch - a container that only listened on 127.0.0.1 could
+          # not be reached by tau-core at all.
+          bandit -r packages -ll --skip B104 --exclude '**/tests/**,**/.venv/**'
+
+  frontend-audit:
+    name: Dependency vulnerabilities (npm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: packages/frontend/package-lock.json
+      - name: npm audit
+        working-directory: packages/frontend
+        # Fails on moderate and above. Dev-only advisories still count: the esbuild one let any
+        # website a developer visited read from their running dev server, which is a real machine
+        # holding real credentials for this deployment.
+        run: npm audit --audit-level=moderate
+
+  cdg-integrity:
+    name: CDG ruleset integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # The CDG ruleset is the one file the whole architecture trusts, and project-tau-plan.md
+      # §7 says it may only ever change by manual, out-of-band edit - never through the
+      # self-upgrade pipeline. This asserts the file still loads and still contains the rules
+      # that make that guarantee true, so a broken or gutted ruleset fails CI rather than
+      # shipping quietly.
+      - name: Ruleset loads and still denies CDG self-modification
+        run: |
+          pip install -e ./packages/tau-core
+          python - <<'PY'
+          from pathlib import Path
+          from tau_core.cdg import CoreDirectiveGuard, Effect, load_rules
+
+          guard = CoreDirectiveGuard(load_rules(Path("packages/tau-core/config/cdg_rules.yaml")))
+          assert guard.evaluate("any-server", "edit_cdg_rules").effect is Effect.DENY, \
+              "the CDG must refuse to let any tool modify its own ruleset"
+          assert guard.evaluate("security-mcp-server", "exit_lockdown").effect is Effect.REQUIRE_APPROVAL, \
+              "exiting lockdown must require a human"
+          assert guard.evaluate("memory-mcp-server", "promote_memory").effect is Effect.REQUIRE_APPROVAL, \
+              "promoting an unverified draft to a fact must require a human (Phase 8.B)"
+          print("CDG ruleset integrity: ok")
+          PY
+
+  crypto-store-parity:
+    name: crypto_store.py copies have not diverged
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # crypto_store.py is deliberately duplicated into six packages. Each has its own venv and a
+      # Docker build context scoped to its own directory (docker/mcp-server.Dockerfile does
+      # `COPY src ./src` from `context: ./packages/<pkg>`), so a shared internal package would be
+      # invisible to five image builds - the build context is what decides this, not taste.
+      #
+      # That tradeoff is fine as long as the copies stay in sync, and until this job existed
+      # nothing checked that they did. Compares ASTs with docstrings stripped rather than bytes:
+      # each copy legitimately localizes its own prose (tau-admin-server's drops comments naming
+      # tau-core-only symbols), and a byte-diff would fail on that and train people to paste
+      # irrelevant comments back in. What must never diverge is the CODE.
+      #
+      # If a package ever genuinely needs different behaviour here, this job will block it - which
+      # is the right default. Make it a deliberate change and update the expected count below.
+      - name: Compare ASTs
+        run: |
+          python - <<'PY'
+          import ast, hashlib, pathlib, sys
+
+          paths = sorted(pathlib.Path("packages").glob("*/**/crypto_store.py"))
+          if len(paths) != 6:
+              print(f"expected 6 copies of crypto_store.py, found {len(paths)}:")
+              for p in paths:
+                  print(f"  {p}")
+              sys.exit(1)
+
+          groups: dict[str, list[str]] = {}
+          for path in paths:
+              tree = ast.parse(path.read_text(encoding="utf-8"))
+              for node in ast.walk(tree):
+                  if isinstance(
+                      node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                  ) and ast.get_docstring(node) is not None:
+                      node.body = node.body[1:]
+              digest = hashlib.sha256(ast.dump(tree).encode()).hexdigest()
+              groups.setdefault(digest, []).append(str(path))
+
+          if len(groups) > 1:
+              print("crypto_store.py copies have DIVERGED in code, not just comments:")
+              for digest, group in groups.items():
+                  print(f"  {digest[:12]}:")
+                  for path in group:
+                      print(f"    {path}")
+              sys.exit(1)
+          print(f"crypto_store.py parity: ok ({len(paths)} identical copies)")
+          PY

@@ -1,0 +1,11 @@
+# Copy to group_vars/all.yml (gitignored).
+k3s_version: "v1.29.6+k3s1" # pin explicitly; do not track "latest" in a home-lab you rely on
+
+# Interface the Proxmox web UI and SSH should be reachable on for 2FA/hardening checks
+proxmox_admin_realm: "pve"
+
+ollama_models:
+  - llama3.1:8b
+  - qwen2.5:0.5b
+
+faster_whisper_model: "small"

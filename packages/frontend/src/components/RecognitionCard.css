@@ -1,0 +1,110 @@
+.recognition-card-overlay {
+  position: fixed;
+  top: 1em;
+  right: 1em;
+  z-index: 90; /* below ApprovalQueue's blocking overlay (100), above the permanent layout */
+  pointer-events: none;
+}
+
+.recognition-card {
+  pointer-events: auto;
+  width: 220px;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.75em;
+  position: relative;
+  animation: recognition-enter 0.25s ease-out;
+}
+
+@keyframes recognition-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.recognition-close {
+  position: absolute;
+  top: 0.25em;
+  right: 0.25em;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0.25em 0.4em;
+  cursor: pointer;
+}
+
+.recognition-close:active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.recognition-portrait {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ink);
+  overflow: hidden;
+}
+
+.recognition-svg-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recognition-svg-wrap svg {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.recognition-svg-wrap svg path,
+.recognition-svg-wrap svg line,
+.recognition-svg-wrap svg polyline,
+.recognition-svg-wrap svg polygon,
+.recognition-svg-wrap svg circle,
+.recognition-svg-wrap svg ellipse,
+.recognition-svg-wrap svg rect {
+  stroke: var(--ink);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.recognition-ascii {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: pre;
+  overflow: hidden;
+}
+
+.recognition-label {
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 0.1em;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+.recognition-role {
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

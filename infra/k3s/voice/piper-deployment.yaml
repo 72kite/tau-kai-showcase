@@ -1,0 +1,35 @@
+# nodeSelector targets the node labeled by ../../ansible/playbooks/05-voice-node.yml, which also
+# ensures that node has enough disk for voice model caches.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: piper
+  namespace: voice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: piper
+  template:
+    metadata:
+      labels:
+        app: piper
+    spec:
+      nodeSelector:
+        tau-role: voice
+      containers:
+        - name: piper
+          image: rhasspy/wyoming-piper:latest
+          args:
+            - "--voice"
+            - "en_US-lessac-medium"
+          ports:
+            - name: wyoming
+              containerPort: 10200
+          volumeMounts:
+            - name: models
+              mountPath: /data
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: piper-models

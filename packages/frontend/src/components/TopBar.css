@@ -1,0 +1,204 @@
+/* Phase 6.F: one cohesive top toolbar. Status readouts on the left, tools + clock on the right.
+   This replaces both the 6.C top strip and the old bottom status bar - all chrome is bounded to
+   this bar so the atom owns the center of the screen. */
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0.25em 0.7em;
+  border-bottom: 2px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  flex: 0 0 auto;
+  min-height: 44px; /* touch target for the items inside */
+}
+
+.top-bar-status {
+  display: flex;
+  align-items: center;
+  gap: 0.2em;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.top-bar-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  flex: 0 0 auto;
+}
+
+/* 6.C "retire the stat tiles", carried forward: no per-item box, just a small muted caption over
+   a prominent monospaced value, with a hover underline as the only affordance. */
+.bar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05em;
+  padding: 0.2em 0.55em;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  justify-content: center;
+  /* WCAG 2.2 AAA (2.5.5) touch-target guidance is 44x44 CSS px - the AA floor axe-core's
+     target-size rule checks is only 24px, which this already cleared at 40px. Bumped anyway
+     (2026-09-12 accessibility pass): this is a wall-mounted kiosk a household's kids or an
+     elderly relative may tap, not a mouse-driven desktop app, so the stricter physical-touch bar
+     is the more honest target even though nothing automated demands it. */
+  min-height: 44px;
+}
+
+.bar-label {
+  font-weight: 600;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.bar-value {
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  letter-spacing: 0.05em;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bar-value.quiet {
+  /* Not opacity (2026-09-12): it composited to 3.94:1 against the toolbar's paper background,
+     under WCAG AA's 4.5:1 floor for text this size - see index.css's --faint docstring. */
+  color: var(--faint);
+}
+
+.bar-value.alert {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+.bar-item:hover .bar-value,
+.bar-item:focus-visible .bar-value {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+.bar-item.approval-notice {
+  background: var(--ink);
+  color: var(--paper);
+  animation: approval-notice-pulse 0.8s step-start infinite;
+}
+
+.bar-item.approval-notice .bar-label {
+  color: var(--paper);
+}
+
+@keyframes approval-notice-pulse {
+  0%, 49% {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  50%, 100% {
+    background: var(--paper);
+    color: var(--ink);
+  }
+}
+
+.bar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 44x44 (WCAG 2.2 AAA touch-target guidance - see .bar-item's comment above): these are the
+     smallest, glyph-only targets in the toolbar and the ones most exposed to a mis-tap, since
+     there's no text label to help a finger aim. The glyph itself stays its original visual size
+     (font-size unchanged) - only the tappable area grows. */
+  width: 44px;
+  height: 44px;
+  font-size: 14px;
+  line-height: 1;
+  background: transparent;
+  color: var(--ink);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+button.bar-icon:hover,
+button.bar-icon:focus-visible {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* Mic: status by light, not words (6.C). Dim at rest, green while capturing, struck through
+   when the browser can't do voice at all. */
+.mic-icon {
+  cursor: default;
+  opacity: 0.35;
+  transition: opacity 0.4s ease-in-out, color 0.4s ease-in-out;
+}
+
+.mic-icon.live {
+  opacity: 1;
+  color: rgb(40, 180, 90);
+}
+
+.mic-icon.unsupported {
+  opacity: 0.3;
+  text-decoration: line-through;
+}
+
+/* Voice-out (Phase 13): the note glyph reads normally when Tau speaks replies; muted is shown by
+   a strike-through + dim, the same "status by light, not words" convention the mic icon uses. */
+.voice-out-icon.muted {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+/* Barge-in (Phase 19): the hand glyph reads normally when you can interrupt; struck + dim when
+   off, matching the mute/mic convention. */
+.barge-in-icon.off {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.top-clock {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  padding-left: 0.3em;
+}
+
+.top-clock-time {
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+.top-clock-date {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+/* Narrow screens: the status readouts drop their captions and scroll horizontally rather than
+   pushing the clock/tools off the bar. */
+@media (max-width: 700px) {
+  .top-bar-status {
+    overflow-x: auto;
+  }
+
+  .bar-label {
+    display: none;
+  }
+
+  .top-clock-date {
+    display: none;
+  }
+}
+

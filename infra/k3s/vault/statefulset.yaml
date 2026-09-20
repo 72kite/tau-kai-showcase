@@ -1,0 +1,66 @@
+# Single-replica Vault with Raft integrated storage (see tool-choice rationale in infra/README.md
+# and the approved plan: avoids standing up Consul for a home-lab-scale deployment).
+#
+# Requires a "vault-tls" TLS secret in the vault namespace before this comes up healthy:
+#   kubectl -n vault create secret tls vault-tls --cert=vault.crt --key=vault.key
+# A self-signed cert is fine for a home lab; see infra/README.md for the openssl one-liner.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: vault
+  namespace: vault
+spec:
+  serviceName: vault-internal
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vault
+  template:
+    metadata:
+      labels:
+        app: vault
+    spec:
+      serviceAccountName: vault
+      containers:
+        - name: vault
+          image: hashicorp/vault:1.17
+          args:
+            - server
+            - -config=/vault/config/vault.hcl
+          ports:
+            - name: api
+              containerPort: 8200
+            - name: cluster
+              containerPort: 8201
+          securityContext:
+            capabilities:
+              add: ["IPC_LOCK"]
+          volumeMounts:
+            - name: config
+              mountPath: /vault/config
+            - name: tls
+              mountPath: /vault/tls
+              readOnly: true
+            - name: data
+              mountPath: /vault/data
+          readinessProbe:
+            httpGet:
+              path: /v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200
+              port: 8200
+              scheme: HTTPS
+            initialDelaySeconds: 5
+      volumes:
+        - name: config
+          configMap:
+            name: vault-config
+        - name: tls
+          secret:
+            secretName: vault-tls
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi

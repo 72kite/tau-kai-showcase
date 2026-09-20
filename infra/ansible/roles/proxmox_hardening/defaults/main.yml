@@ -1,0 +1,2 @@
+disable_root_ssh_password_login: true
+enable_pve_firewall: true
