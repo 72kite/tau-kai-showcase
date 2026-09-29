@@ -1,7 +1,7 @@
 # tau-desktop
 
 Tauri desktop shell for Tau (Phase 27.D) — see
-[`project-tau-plan.md`](../../project-tau-plan.md) §8.28's 27.D section. A native Windows/Linux
+`project-tau-plan.md` §8.28's 27.D section. A native Windows/Linux
 client that wraps [`packages/frontend`](../frontend/) in a real OS window instead of a browser
 tab, as the first step toward a local, private replacement for Siri/Google Assistant. It does not
 fork or duplicate the frontend — `tauri.conf.json`'s `frontendDist` points straight at

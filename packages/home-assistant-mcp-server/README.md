@@ -1,7 +1,7 @@
 # home-assistant-mcp-server
 
 The Home Assistant MCP server for Project Tau — see
-[`project-tau-plan.md`](../project-tau-plan.md) Section 5.2. Phase 2's first domain server: wraps
+`project-tau-plan.md` Section 5.2. Phase 2's first domain server: wraps
 Home Assistant's REST API as MCP tools. Independently deployable, like every domain server in
 Tau's architecture — this package does not depend on `tau-core`.
 

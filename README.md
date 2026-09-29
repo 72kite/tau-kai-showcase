@@ -7,8 +7,10 @@ server; a single
 **Core Directive Guard** sits between Tau's LLM and every one of them, so no tool call —
 human-issued or model-issued — can bypass approval policy.
 
-See [`project-tau-plan.md`](project-tau-plan.md) for the full build plan, phase-by-phase status,
-and design rationale. This README is the "how it actually works" reference: architecture,
+See `project-tau-plan.md` for the full build plan, phase-by-phase status,
+and design rationale. That document is this project's engineering log and is kept private, so it is not part of
+this public snapshot; references to it here point at where a decision is recorded rather than at a
+file you can open. This README is the "how it actually works" reference: architecture,
 request lifecycle, every tool in the system, and how to run it.
 
 ---

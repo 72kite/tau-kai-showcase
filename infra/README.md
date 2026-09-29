@@ -1,6 +1,6 @@
 # infra/ — Project Tau Phase 0
 
-Infrastructure-as-code for [Phase 0](../project-tau-plan.md#3-phase-0--infrastructure-foundation-weeks-12) of Project Tau: the Proxmox/k3s/Vault/observability/Ollama/voice substrate that Tau Core (Phase 1, already built in [`tau-core/`](../tau-core/)) will eventually run on.
+Infrastructure-as-code for Phase 0 of Project Tau: the Proxmox/k3s/Vault/observability/Ollama/voice substrate that Tau Core (Phase 1, already built in [`tau-core/`](../packages/tau-core/)) will eventually run on.
 
 **This directory is code only.** Nothing here has been applied to real hardware — it was written without network access to any Proxmox host. You (the operator) apply it against your own homelab and verify it with the smoke test before treating any Phase 0 checklist item as done.
 

@@ -3,7 +3,7 @@
 A practical, copy-paste guide to standing up the whole Tau stack with Docker, pointing it at a
 GPU, reaching it from your phone, and (optionally) SSHing in — plus the security caveats that
 actually matter. This is the "dev/test on one box" path; the production home-lab (Proxmox + k3s)
-is Phase 0 in [`project-tau-plan.md`](project-tau-plan.md).
+is Phase 0 in `project-tau-plan.md`.
 
 > **One-line security warning, up front:** Tau ships in **LAN-trust mode by default**
 > (`TAU_REQUIRE_VOICE_APPROVAL` unset) — **anyone who can reach the web UI is an admin.** That's

@@ -1,6 +1,6 @@
 # robotics-mcp-server
 
-The robotics MCP server for Project Tau — see [`project-tau-plan.md`](../project-tau-plan.md)
+The robotics MCP server for Project Tau — see `project-tau-plan.md`
 Section 8. Phase 5 domain server: outdoor drone patrol control (robot dog deferred until its
 SDK/ROS integration is stable). Independently deployable, like every domain server in Tau's
 architecture — this package does not depend on `tau-core`.

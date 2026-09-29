@@ -1,6 +1,6 @@
 # security-mcp-server
 
-The security MCP server for Project Tau — see [`project-tau-plan.md`](../project-tau-plan.md)
+The security MCP server for Project Tau — see `project-tau-plan.md`
 Section 5.6. Phase 2.6 domain server: lockdown policy, intrusion logging, and security state
 management. Independently deployable, like every domain server in Tau's architecture — this
 package does not depend on `tau-core`.

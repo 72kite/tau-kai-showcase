@@ -1,6 +1,6 @@
 # voice-mcp-server
 
-The voice MCP server for Project Tau — see [`project-tau-plan.md`](../project-tau-plan.md)
+The voice MCP server for Project Tau — see `project-tau-plan.md`
 Section 5.3. Phase 2's second domain server: wraps Piper (TTS) and faster-whisper (STT) as MCP
 tools. Independently deployable, like every domain server in Tau's architecture — this package
 does not depend on `tau-core`.
@@ -210,7 +210,7 @@ the real model and real-device mic testing.
 ## Backends
 
 Both already have infra scaffolding (code-only, not yet applied — see
-[`../infra/README.md`](../infra/README.md)):
+[`../infra/README.md`](../../infra/README.md)):
 
 | Service | Protocol | Image | infra manifest |
 |---|---|---|---|

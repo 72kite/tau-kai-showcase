@@ -1,6 +1,6 @@
 # ui-bridge-mcp-server
 
-The UI bridge MCP server for Project Tau — see [`project-tau-plan.md`](../project-tau-plan.md)
+The UI bridge MCP server for Project Tau — see `project-tau-plan.md`
 Section 6. Phase 3's aggregation layer: collects state from domain servers (voice, home
 assistant, vision, security) and exposes it as MCP Resources so the frontend subscribes
 directly without a separate REST API layer.

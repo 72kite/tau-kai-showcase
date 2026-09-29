@@ -1,6 +1,6 @@
 # Tau UI — Frontend
 
-The web frontend for Project Tau — see [`project-tau-plan.md`](../project-tau-plan.md) Section 6 (Phase 3). Primary deployment target: a browser on an **older iPad**, locked to this page in kiosk mode.
+The web frontend for Project Tau — see `project-tau-plan.md` Section 6 (Phase 3). Primary deployment target: a browser on an **older iPad**, locked to this page in kiosk mode.
 
 ## Visual design
 

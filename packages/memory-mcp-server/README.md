@@ -1,6 +1,6 @@
 # memory-mcp-server
 
-The memory MCP server for Project Tau — see [`project-tau-plan.md`](../project-tau-plan.md)
+The memory MCP server for Project Tau — see `project-tau-plan.md`
 Section 5.4. Phase 2's third domain server: stores face/voice embeddings and per-person profiles
 (access levels) for recognition. Independently deployable, like every domain server in Tau's
 architecture — this package does not depend on `tau-core`.

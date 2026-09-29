@@ -1,6 +1,6 @@
 # fabrication-mcp-server
 
-The fabrication MCP server for Project Tau — see [`project-tau-plan.md`](../project-tau-plan.md)
+The fabrication MCP server for Project Tau — see `project-tau-plan.md`
 Section 5.7. Phase 2.7 domain server: 3D printer control via OctoPrint or Moonraker (Klipper).
 Independently deployable, like every domain server in Tau's architecture — this package does not
 depend on `tau-core`.

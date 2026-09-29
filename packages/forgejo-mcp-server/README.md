@@ -1,7 +1,7 @@
 # forgejo-mcp-server
 
 The Forgejo MCP server for Project Tau — Phase 31, gives Tau tool access to the private git
-hosting stood up in Phase 28 (see [`project-tau-plan.md`](../project-tau-plan.md)). Wraps
+hosting stood up in Phase 28 (see `project-tau-plan.md`). Wraps
 Forgejo's REST API (Gitea-compatible) as MCP tools. Independently deployable, like every domain
 server in Tau's architecture — this package does not depend on `tau-core`.
 

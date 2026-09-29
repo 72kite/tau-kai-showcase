@@ -1,6 +1,6 @@
 # Tau Core
 
-The MCP Host for Project Tau — see [`project-tau-plan.md`](../project-tau-plan.md) for the full
+The MCP Host for Project Tau — see `project-tau-plan.md` for the full
 build plan. This package is Phase 1: the orchestrator that holds the LLM session, decides which
 MCP tools to call, and enforces Tau's non-negotiable rules through the Core Directive Guard.
 

@@ -239,6 +239,6 @@ architectural answer is to scope research to a sub-agent that holds nothing wort
 
 ## References
 
-- [Project Plan](project-tau-plan.md) — Full build timeline and phase details
+- Project Plan — Full build timeline and phase details
 - [Integrations & Roadmap](INTEGRATIONS.md) — Upcoming integrations and design ideas
 - [Design Decisions](DESIGN_DECISIONS.md) — Why MCP, why CDG, why k3s

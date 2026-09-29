@@ -1,6 +1,6 @@
 # proxmox-mcp-server
 
-The Proxmox MCP server for Project Tau — see [`project-tau-plan.md`](../project-tau-plan.md)
+The Proxmox MCP server for Project Tau — see `project-tau-plan.md`
 Section 5.1. Phase 2.1 domain server: wraps Proxmox VE REST API as MCP tools for infrastructure
 management. Independently deployable, like every domain server in Tau's architecture — this
 package does not depend on `tau-core`.

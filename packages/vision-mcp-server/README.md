@@ -1,6 +1,6 @@
 # vision-mcp-server
 
-The vision MCP server for Project Tau — see [`project-tau-plan.md`](../project-tau-plan.md)
+The vision MCP server for Project Tau — see `project-tau-plan.md`
 Section 5.5. Phase 2.5 domain server: camera access, face detection, scene understanding, and
 PTZ control. Independently deployable, like every domain server in Tau's architecture — this
 package does not depend on `tau-core`.

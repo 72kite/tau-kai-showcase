@@ -151,7 +151,7 @@ memory-mcp-server/
 - **Total**: ~60 hrs (1.5 weeks, 1 engineer)
 
 #### Related
-- See [OPENHUMAN_AUDIT.md](OPENHUMAN_AUDIT.md) for detailed module breakdown
+- See OPENHUMAN_AUDIT.md for detailed module breakdown
 
 ---
 
@@ -242,7 +242,7 @@ phase4-upgrade-pipeline/
 - **Total**: ~100-110 hrs (2.5-3 weeks, 1-2 engineers)
 
 #### Related
-- See [OPENHUMAN_AUDIT.md](OPENHUMAN_AUDIT.md#2-orchestration--workflows) for orchestration module details
+- See OPENHUMAN_AUDIT.md for orchestration module details
 
 ---
 
