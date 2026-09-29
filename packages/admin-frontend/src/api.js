@@ -58,6 +58,7 @@ export const api = {
   approveDevice: (token, id) => request(`/api/admin/devices/${encodeURIComponent(id)}/approve`, { method: 'POST', token }),
   blockDevice: (token, id) => request(`/api/admin/devices/${encodeURIComponent(id)}/block`, { method: 'POST', token }),
   unblockDevice: (token, id) => request(`/api/admin/devices/${encodeURIComponent(id)}/unblock`, { method: 'POST', token }),
+  removeDevice: (token, id) => request(`/api/admin/devices/${encodeURIComponent(id)}`, { method: 'DELETE', token }),
 
   systemSnapshot: (token) => request('/api/admin/system', { token }),
   peopleSnapshot: (token) => request('/api/admin/people', { token }),

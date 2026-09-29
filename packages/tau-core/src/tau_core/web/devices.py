@@ -225,6 +225,25 @@ class DeviceRegistry:
                 device.blocked = False
             return device
 
+    def remove(self, device_id: str) -> bool:
+        """Forget a device entirely (admin portal) - distinct from block(), which keeps the row
+        and its token but refuses it. Use this for a device you don't recognise: an unrecognised
+        "approved" entry is exactly as much a live credential as one you do, and blocking only
+        stops enforcement from honouring the token - it doesn't take the token away. Returns
+        True if a device was actually removed, False for an unknown id (nothing to do).
+
+        Persisted like approve(): an approved device's token must not silently come back after a
+        restart just because removal only touched the in-memory copy. Safe to call on an unknown
+        id with no store configured - _save_locked() is a no-op then, matching every other
+        write path here."""
+        device_id = (device_id or "").strip()
+        with self._lock:
+            existed = self._devices.pop(device_id, None) is not None
+            self._order.pop(device_id, None)
+            if existed:
+                self._save_locked()
+            return existed
+
     def approve(self, device_id: str) -> str | None:
         """Approve a pending device, minting a long-lived bearer token. Returns the raw token -
         shown to the admin exactly once, since only its sha256 hash is stored - or None if the

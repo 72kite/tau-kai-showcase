@@ -205,6 +205,10 @@ def create_app(
     async def unblock_device(device_id: str, _: str = Depends(_current_user)) -> dict:
         return await _proxied(proxy.unblock_device(device_id))
 
+    @app.delete("/api/admin/devices/{device_id}")
+    async def remove_device(device_id: str, _: str = Depends(_current_user)) -> dict:
+        return await _proxied(proxy.remove_device(device_id))
+
     # --- snapshots ----------------------------------------------------------------------------
 
     @app.get("/api/admin/system")

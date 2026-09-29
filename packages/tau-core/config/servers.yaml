@@ -122,7 +122,7 @@ servers:
     args: ["-m", "wikipedia_mcp_server.server"]
 
   # Phase 31's git-hosting server (../forgejo-mcp-server, added 2026-09-04). Same "pip install -e"
-  # note as above. Wraps the private Forgejo instance stood up in Phase 28 (git.tau.home).
+  # note as above. Wraps the private Forgejo instance stood up in Phase 28 (git.example.lan).
   # FORGEJO_URL/FORGEJO_TOKEN/FORGEJO_OWNER live in that package's own .env. All tools are
   # read-only except create_issue, which the CDG gates behind human approval (see cdg_rules.yaml's
   # forgejo-create-issue-needs-approval rule).

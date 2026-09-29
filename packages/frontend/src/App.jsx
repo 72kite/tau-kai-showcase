@@ -10,6 +10,7 @@ import TopBar from './components/TopBar'
 import ModelActivity from './components/ModelActivity'
 import StatusFooter from './components/StatusFooter'
 import ConnectionSettings from './components/ConnectionSettings'
+import DataLink from './components/DataLink'
 import { isTauri } from './utils/tauri'
 import { hasApiBaseOverride } from './hooks/useMCPResource'
 import { useDeviceState } from './hooks/useDeviceState'
@@ -163,6 +164,13 @@ export default function App() {
   // picture from an earlier turn doesn't linger next to an unrelated reply.
   const [lastImage, setLastImage] = useState(null)
 
+  // The two ends of the retrieval data-link (Phase 54). `atomNodeAnchorRef` is written by the
+  // atom's frame loop with the live viewport position of one orbiting node; `imageFrameRef` is
+  // the framed picture the link runs to. Both are refs rather than state so the 60fps writer
+  // never re-renders this component - DataLink samples them on its own slow schedule.
+  const atomNodeAnchorRef = useRef(null)
+  const imageFrameRef = useRef(null)
+
   const handleCommand = useCallback(
     async (text, speaker = null, source = 'voice') => {
       const attachments = pendingAttachmentsRef.current
@@ -278,7 +286,15 @@ export default function App() {
   // far. Falls through to the recall behavior only when neither applies.
   const handleStageClick = () => {
     if (speaking) {
-      stop()
+      // `stopSpeech`, not `stop`. This read `stop()` until 2026-09-22, and the bug was invisible
+      // because it did not throw: there is no local binding called `stop` (useSpeech's is
+      // destructured as `stop: stopSpeech`), so the call resolved to the global `window.stop()` -
+      // a real DOM method that aborts page loading and has nothing to do with speech. So
+      // tap-anywhere-to-stop silently did nothing to a reply in progress, with no console error
+      // to notice, while the two OTHER interrupt paths (atom double-tap via useVoiceInvoke's
+      // stopSpeaking, and wake-word barge-in via onBargeIn) both wired `stopSpeech` correctly and
+      // worked - which is why this looked functional.
+      stopSpeech()
       return
     }
     if (mode === 'invoked' || mode === 'followup') {
@@ -401,6 +417,7 @@ export default function App() {
         onToggleVoiceMute={toggleVoiceMute}
         bargeInEnabled={bargeInEnabled}
         onToggleBargeIn={toggleBargeIn}
+        speaking={speaking}
         onOpenDrawer={() => setDrawerOpen(true)}
         onAttach={() => fileInputRef.current?.click()}
       />
@@ -462,6 +479,7 @@ export default function App() {
               isListening={mode === 'invoked' || mode === 'followup'}
               isThinking={mode === 'thinking'}
               voiceLevelRef={micLevelRef}
+              nodeAnchorRef={atomNodeAnchorRef}
               onClick={handleAtomClick}
             />
             <ModelActivity mode={mode} followUpSecondsLeft={followUpSecondsLeft} />
@@ -472,6 +490,7 @@ export default function App() {
             visible={surfaceOpen}
             working={mode === 'thinking'}
             image={lastImage}
+            imageFrameRef={imageFrameRef}
           />
 
           {!surfaceOpen && hasHistory && (
@@ -507,6 +526,14 @@ export default function App() {
 
         {state.design?.active && <DesignDrawing design={state.design} />}
       </div>
+
+      {/* Drawn only while a retrieved picture is actually on screen - the link exists to explain
+          where that picture came from, so with no picture there is nothing for it to say. */}
+      <DataLink
+        anchorRef={atomNodeAnchorRef}
+        targetRef={imageFrameRef}
+        active={Boolean(lastImage?.url) && surfaceOpen}
+      />
 
       {/* Far-bottom: which build this is, and which device you're standing in front of. */}
       <StatusFooter deviceId={deviceId} deviceName={deviceName} />

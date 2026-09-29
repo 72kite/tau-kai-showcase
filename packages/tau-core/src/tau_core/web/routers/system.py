@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 
 from fastapi import APIRouter, Header
 
@@ -18,6 +19,13 @@ from tau_core.version import build_sha, tau_core_version
 from tau_core.web.deps import SharedDeps, _device_id, _sanitized_error, _tool_json
 
 logger = logging.getLogger(__name__)
+
+# Process start, for /api/health's uptime. Module import time rather than a real start timestamp,
+# the same approximation utility-mcp-server.server makes and for the same reason: this module is
+# imported during app construction, so the difference is milliseconds, and nothing here needs
+# better than that. Monotonic, so a clock adjustment (NTP step, DST) cannot make uptime jump or
+# go backwards on a kiosk that has been showing it for a week.
+_STARTED_MONOTONIC = time.monotonic()
 
 
 def build_system_router(deps: SharedDeps) -> APIRouter:
@@ -69,6 +77,12 @@ def build_system_router(deps: SharedDeps) -> APIRouter:
             "registered_servers": registered,
             "unavailable_servers": unavailable,
             "device_token_enforced": settings.require_device_token,
+            # How long THIS bridge process has been up. The toolbar shows it next to the clock so
+            # a glance at a kiosk says whether tau-core restarted overnight - previously only
+            # utility-mcp-server knew this, and only the model could ask it (get_system_status),
+            # which is no use to a person standing in front of the screen. The frontend polls this
+            # slowly and ticks the seconds locally; see useUptime.js.
+            "uptime_seconds": round(time.monotonic() - _STARTED_MONOTONIC, 1),
         }
 
     @router.get("/api/tls/fingerprint")

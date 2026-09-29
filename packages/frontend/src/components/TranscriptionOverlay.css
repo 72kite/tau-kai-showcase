@@ -109,30 +109,9 @@
    "no borders or bubbles" above - a photo genuinely needs a boundary against the page background
    the way text doesn't, so it gets the thinnest border this palette uses rather than none. Capped
    height so a tall image can't push the reply text or the atom itself out of view. */
-.response-image {
-  display: block;
-  width: fit-content;
-  max-width: 100%;
-  border: 1px solid var(--ink);
-  text-decoration: none;
-  color: inherit;
-}
-
-.response-image img {
-  display: block;
-  max-width: 100%;
-  max-height: 220px;
-  object-fit: contain;
-}
-
-.response-image-caption {
-  display: block;
-  padding: 0.4em 0.6em;
-  border-top: 1px solid var(--ink);
-  font-family: 'Roboto Mono', 'Courier New', monospace;
-  font-size: 11px;
-  opacity: 0.65;
-}
+/* .response-image / .response-image-caption were removed in Phase 54. The retrieved picture is
+   now a framed VisualContext block above the reply (VisualContext.css) rather than a bordered
+   thumbnail below it. */
 
 .response-pending {
   font-family: 'Roboto Mono', 'Courier New', monospace;

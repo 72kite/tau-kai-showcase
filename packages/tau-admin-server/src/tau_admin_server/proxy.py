@@ -94,6 +94,9 @@ class TauCoreProxy:
     async def unblock_device(self, device_id: str) -> dict:
         return await self._request("POST", f"/api/admin/devices/{device_id}/unblock")
 
+    async def remove_device(self, device_id: str) -> dict:
+        return await self._request("DELETE", f"/api/admin/devices/{device_id}")
+
     # --- snapshots ----------------------------------------------------------------------------
     async def system_snapshot(self) -> dict:
         return await self._request("GET", "/api/admin/system")

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import NeuronField from './NeuronField'
+import VisualContext from './VisualContext'
 import './TranscriptionOverlay.css'
 
 /**
@@ -68,7 +69,13 @@ function speakerLabel(speaker) {
   return 'TAU'
 }
 
-export default function TranscriptionOverlay({ state, visible = true, working = false, image = null }) {
+export default function TranscriptionOverlay({
+  state,
+  visible = true,
+  working = false,
+  image = null,
+  imageFrameRef = null,
+}) {
   const history = state?.history || []
   const { heard, reply, memory } = useMemo(() => latestExchange(history), [history])
 
@@ -115,6 +122,14 @@ export default function TranscriptionOverlay({ state, visible = true, working = 
       aria-live="polite"
       aria-hidden={!(visible && hasContent)}
     >
+      {/* Phase 40's "visual answer card", reframed (Phase 54): a picture for a recall or a
+          "what does X look like" reply, now rendered ABOVE the text as retrieved system data -
+          see VisualContext.jsx for why it moved and why it's framed rather than shown plain.
+          Local-turn state, not part of `state` - see App.jsx's lastImage for why - so it can
+          outlive an old reply for a beat if a new command clears it before the next one lands;
+          harmless, the image always tracks the most recent /api/chat response. */}
+      <VisualContext image={image} ref={imageFrameRef} />
+
       {heard && (
         <div className="response-heard">
           <span className="response-speaker">{speakerLabel(heard.speaker)}</span>
@@ -132,27 +147,6 @@ export default function TranscriptionOverlay({ state, visible = true, working = 
             </span>
           ))}
         </div>
-      )}
-
-      {/* Phase 40 "visual answer card": a picture for a "what does X look like" reply (e.g. via
-          research-mcp-server.search_images), Siri/Gemini-style. Local-turn state, not part of
-          `state` - see App.jsx's lastImage for why - so it can outlive an old reply for a beat if
-          a new command clears it before the next one lands; harmless, the image always tracks
-          the most recent /api/chat response. */}
-      {image?.url && (
-        <a
-          className="response-image"
-          href={image.source_url || image.url}
-          target="_blank"
-          rel="noreferrer noopener"
-        >
-          <img src={image.url} alt={image.title || 'related image'} loading="lazy" />
-          {(image.title || image.source) && (
-            <span className="response-image-caption">
-              {[image.title, image.source].filter(Boolean).join(' — ')}
-            </span>
-          )}
-        </a>
       )}
 
       {showNeurons && <NeuronField active={working} />}

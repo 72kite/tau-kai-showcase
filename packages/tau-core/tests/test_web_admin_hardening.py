@@ -362,6 +362,59 @@ async def test_approve_endpoint_requires_admin_when_voice_on():
         assert "token" in ok.json()
 
 
+# --- device removal - discards the row and any token, not just refuses it ---------------------
+
+
+async def test_removed_device_has_no_trace_and_returns_as_fresh_pending():
+    app, _host, _manager = make_app()
+    async with client_for(app) as client:
+        # Approve it first - removal of an approved device (with a live token) is the real case
+        # this exists for, not just an unnamed pending row.
+        await client.get("/api/state", headers={"X-Tau-Device-Id": "kids-tablet"})
+        approved = await client.post("/api/admin/devices/kids-tablet/approve")
+        assert approved.status_code == 200
+
+        removed = await client.delete("/api/admin/devices/kids-tablet")
+        assert removed.status_code == 200
+        assert removed.json() == {"device_id": "kids-tablet", "removed": True}
+
+        listing = await client.get("/api/devices")
+        assert "kids-tablet" not in {d["device_id"] for d in listing.json()}
+
+        # It can still talk (registering is open by design) - but as a brand-new pending device,
+        # not something that silently carries its old approval forward. Whether the OLD token
+        # still authenticates is a device-token-enforcement question, not an admin-route one -
+        # see test_web_devices.py's test_removed_devices_old_token_is_rejected_under_enforcement
+        # for that, driven through create_app() with require_device_token=True directly, since
+        # this file's make_app() always runs with enforcement off.
+        again = await client.get("/api/state", headers={"X-Tau-Device-Id": "kids-tablet"})
+        assert again.status_code == 200
+        listing2 = await client.get("/api/devices")
+        readded = next(d for d in listing2.json() if d["device_id"] == "kids-tablet")
+        assert readded["status"] == "pending"
+
+
+async def test_remove_unknown_device_is_404():
+    app, _host, _manager = make_app()
+    async with client_for(app) as client:
+        r = await client.delete("/api/admin/devices/never-seen")
+    assert r.status_code == 404
+
+
+async def test_remove_endpoint_requires_admin_when_voice_on():
+    app, _host, manager = make_app(require_voice_approval=True)
+    async with client_for(app) as client:
+        await client.get("/api/state", headers={"X-Tau-Device-Id": "devA"})
+        gated = await client.delete("/api/admin/devices/devA")
+        assert gated.status_code == 428
+
+        token = await _admin_token(client, manager)
+        ok = await client.delete(
+            "/api/admin/devices/devA", headers={"X-Tau-Voice-Token": token}
+        )
+        assert ok.status_code == 200
+
+
 # --- Phase 27.A step 3: device-token enforcement wired into the routes _device_id() didn't -----
 # previously reach (admin/*, activity, approvals list, and - spot-checked, since the wiring is
 # identical everywhere - one representative /api/voice/* route). The chokepoint logic itself

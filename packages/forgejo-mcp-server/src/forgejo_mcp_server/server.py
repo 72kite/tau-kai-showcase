@@ -39,10 +39,10 @@ def _client() -> ForgejoClient:
 
 @mcp.tool()
 async def list_repos() -> list[dict[str, Any]]:
-    """List every repository hosted on Tau's private Forgejo instance (git.tau.home), with its
+    """List every repository hosted on Tau's private Forgejo instance (git.example.lan), with its
     description, whether it's private, and when it was last updated.
 
-    Answers "what repos do I have", "what's on git.tau.home", "list my projects".
+    Answers "what repos do I have", "what's on git.example.lan", "list my projects".
     """
     client = _client()
     try:

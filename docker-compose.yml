@@ -592,6 +592,16 @@ services:
   piper-voice-seed:
     image: curlimages/curl:latest
     restart: "no"
+    # Root, because the volume it writes into is root-owned. curlimages/curl defaults to
+    # `curl_user` (uid 100), and piper-data is root:root drwxr-xr-x - so every download failed
+    # with `curl: (23) client returned ERROR on write`, which is curl's "could not write the
+    # output file", not a network error. Found on the 2026-09-22 deploy: 4 of the 5 voices seeded
+    # nothing, and because the loop below deliberately warns-and-continues, the stack came up
+    # healthy with the voice picker offering five voices of which only the one seeded back in
+    # August actually existed. The rest silently fell back to the default, which is exactly the
+    # kind of failure nobody finds except by picking a voice and noticing Tau sounds unchanged.
+    # The piper service reads these same files as root, so root-owned is what they should be.
+    user: "0:0"
     volumes:
       - piper-data:/data
     entrypoint: ["sh", "-c"]

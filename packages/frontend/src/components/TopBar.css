@@ -1,11 +1,14 @@
 /* Phase 6.F: one cohesive top toolbar. Status readouts on the left, tools + clock on the right.
    This replaces both the 6.C top strip and the old bottom status bar - all chrome is bounded to
-   this bar so the atom owns the center of the screen. */
+   this bar so the atom owns the center of the screen.
+
+   Phase 54 restyle: a three-column grid instead of flex/space-between, so the clock is pinned to
+   the right edge and cannot drift when the status cluster changes width (see TopBar.jsx). */
 
 .top-bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
   gap: 1em;
   padding: 0.25em 0.7em;
   border-bottom: 2px solid var(--ink);
@@ -18,9 +21,15 @@
 .top-bar-status {
   display: flex;
   align-items: center;
-  gap: 0.2em;
+  gap: 0;
   min-width: 0;
   overflow: hidden;
+}
+
+/* Empty until the ambient live widget lands. It still has to exist: it is the 1fr that holds the
+   two outer columns apart. */
+.top-bar-center {
+  min-width: 0;
 }
 
 .top-bar-tools {
@@ -30,12 +39,24 @@
   flex: 0 0 auto;
 }
 
+/* The faint rule between data clusters. Sized in em so it tracks the type around it, and held at
+   a low weight so it separates without competing - it is punctuation, not content. */
+.bar-pipe {
+  color: var(--faint);
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-weight: 300;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 0.15em;
+  user-select: none;
+}
+
 /* 6.C "retire the stat tiles", carried forward: no per-item box, just a small muted caption over
    a prominent monospaced value, with a hover underline as the only affordance. */
 .bar-item {
   display: flex;
   flex-direction: column;
-  gap: 0.05em;
+  gap: 0.1em;
   padding: 0.2em 0.55em;
   border: none;
   background: transparent;
@@ -52,21 +73,28 @@
   min-height: 44px;
 }
 
+/* The label/value pair is the toolbar's type hierarchy, and the contrast between them is the
+   whole point: the label is a fixed word you learn once and then stop reading, the value is the
+   thing that changes. So the label goes light, small and wide-tracked, and the value goes big and
+   heavy. Both monospace, so a changing value never reflows its neighbours. */
 .bar-label {
-  font-weight: 600;
-  font-size: 9px;
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-weight: 300;
+  font-size: 8px;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--muted);
+  letter-spacing: 0.22em;
+  color: var(--faint);
   white-space: nowrap;
 }
 
 .bar-value {
   font-family: 'Roboto Mono', 'Courier New', monospace;
-  letter-spacing: 0.05em;
-  font-size: 13px;
+  letter-spacing: 0.04em;
+  font-size: 16px;
   font-weight: 700;
+  line-height: 1.1;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .bar-value.quiet {
@@ -107,6 +135,140 @@
   }
 }
 
+/* ---------------------------------------------------------------------------------------------
+   Hardware I/O group (Phase 54). Outlined buttons, unlike the bare glyphs elsewhere in the bar -
+   the outline is what says "this is a switch you can throw", as against the status readouts on
+   the left, which are only ever reporting. Sharing one border between adjacent buttons keeps the
+   group reading as a single instrument cluster rather than three loose chips.
+   --------------------------------------------------------------------------------------------- */
+
+.io-group {
+  display: flex;
+  align-items: stretch;
+  margin-right: 0.3em;
+}
+
+.io-toggle {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.05em;
+  /* 44px tall to match .bar-icon's touch target; the width is set by the widest label so the
+     three sit on an even pitch. */
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.15em 0.4em;
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  cursor: pointer;
+}
+
+/* Collapse the shared edge so the group has one continuous outline, not three stacked borders. */
+.io-toggle + .io-toggle {
+  border-left: none;
+}
+
+.io-glyph {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.io-name {
+  font-size: 7px;
+  font-weight: 300;
+  letter-spacing: 0.18em;
+  color: var(--faint);
+  line-height: 1;
+}
+
+button.io-toggle:hover,
+button.io-toggle:focus-visible {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+button.io-toggle:hover .io-name,
+button.io-toggle:focus-visible .io-name {
+  color: var(--paper);
+}
+
+/* The mic entry reports, it does not switch - there is no microphone-disable control on this
+   device to bind it to. It carries the same outline so the cluster reads as one unit, but no
+   pointer affordance and no hover state. */
+.io-status {
+  cursor: default;
+}
+
+/* OFF: struck through in the one colour this UI allows (see index.css --alert). The strike is
+   drawn as a positioned rule rather than text-decoration because the glyph and the label are two
+   separate elements - a text-decoration would strike each one individually and read as two short
+   dashes instead of one line through the control. */
+/* Dimmed with a real colour, never with opacity. This is the mistake index.css's --faint
+   docstring was written about, and it was made again here and caught by the axe run: an
+   opacity:0.55 on the control composited --faint's #707070 down to #b0b0b0 against the toolbar's
+   paper - 2.16:1, less than half WCAG AA's 4.5:1 floor - and it did it to the label text, not
+   just the glyph. --faint is calibrated to clear that floor on its own precisely so "quiet" does
+   not depend on what opacity layer happens to sit above it. */
+.io-toggle.disabled .io-glyph {
+  color: var(--faint);
+  position: relative;
+}
+
+/* The strike is anchored to the GLYPH, not to the button. Anchored to the button it lands at the
+   button's vertical midpoint, which is the gap between the glyph and its caption - so it read as
+   an underline beneath the icon rather than a line through it, which is a different symbol. */
+.io-toggle.disabled .io-glyph::after {
+  content: '';
+  position: absolute;
+  left: -5px;
+  right: -5px;
+  top: 50%;
+  height: 0;
+  border-top: 1px solid var(--alert);
+  pointer-events: none;
+}
+
+/* PROCESSING: a 1px dot in the corner, blinking. Deliberately the smallest mark in the toolbar -
+   it is meant to be caught peripherally while looking at something else, not read. step-start
+   rather than a fade, matching the approval pulse and the e-ink "no easing" rule in index.css. */
+.io-toggle.processing::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 1px;
+  height: 1px;
+  background: var(--ink);
+  /* A literal 1px dot disappears on a HiDPI kiosk panel, where 1 CSS px may be a third of a
+     device pixel of visible ink. outline adds a ring without adding layout, so the mark stays a
+     1px element and still lands as a visible ~3px point. */
+  outline: 1px solid var(--ink);
+  animation: io-processing-blink 0.9s step-start infinite;
+}
+
+@keyframes io-processing-blink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+/* A blinking mark is exactly what 2.3.1/2.2.2 is about, and a kiosk runs for weeks unattended.
+   The dot still renders - it just holds steady, so the state is still readable without the
+   motion. */
+@media (prefers-reduced-motion: reduce) {
+  .io-toggle.processing::before,
+  .bar-item.approval-notice {
+    animation: none;
+  }
+}
+
 .bar-icon {
   display: flex;
   align-items: center;
@@ -132,73 +294,57 @@ button.bar-icon:focus-visible {
   color: var(--paper);
 }
 
-/* Mic: status by light, not words (6.C). Dim at rest, green while capturing, struck through
-   when the browser can't do voice at all. */
-.mic-icon {
-  cursor: default;
-  opacity: 0.35;
-  transition: opacity 0.4s ease-in-out, color 0.4s ease-in-out;
-}
-
-.mic-icon.live {
-  opacity: 1;
-  color: rgb(40, 180, 90);
-}
-
-.mic-icon.unsupported {
-  opacity: 0.3;
-  text-decoration: line-through;
-}
-
-/* Voice-out (Phase 13): the note glyph reads normally when Tau speaks replies; muted is shown by
-   a strike-through + dim, the same "status by light, not words" convention the mic icon uses. */
-.voice-out-icon.muted {
-  opacity: 0.4;
-  text-decoration: line-through;
-}
-
-/* Barge-in (Phase 19): the hand glyph reads normally when you can interrupt; struck + dim when
-   off, matching the mute/mic convention. */
-.barge-in-icon.off {
-  opacity: 0.4;
-  text-decoration: line-through;
-}
-
+/* The clock reads as one instrument line: time | date | uptime, pipe-separated like the status
+   clusters, and pinned hard to the right by the grid. */
 .top-clock {
   display: flex;
   align-items: baseline;
-  gap: 0.4em;
-  padding-left: 0.3em;
+  gap: 0.1em;
+  padding-left: 0.4em;
+  white-space: nowrap;
 }
 
 .top-clock-time {
   font-family: 'Roboto Mono', 'Courier New', monospace;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.06em;
+  /* Load-bearing, not cosmetic: this is what makes a ticking seconds field safe to show. With
+     proportional digits every second would change the string's width and shove the date and
+     uptime sideways once a second, forever. */
   font-variant-numeric: tabular-nums;
 }
 
-.top-clock-date {
-  font-size: 10px;
-  letter-spacing: 0.08em;
+.top-clock-date,
+.top-clock-uptime {
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-size: 9px;
+  font-weight: 300;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  opacity: 0.65;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Narrow screens: the status readouts drop their captions and scroll horizontally rather than
-   pushing the clock/tools off the bar. */
+   pushing the clock/tools off the bar. Uptime and the I/O labels go first - they are the least
+   load-bearing things in the bar, and the toggles still work without their captions. */
 @media (max-width: 700px) {
   .top-bar-status {
     overflow-x: auto;
   }
 
-  .bar-label {
+  .bar-label,
+  .io-name {
     display: none;
   }
 
-  .top-clock-date {
+  .top-clock-date,
+  .top-clock-uptime {
+    display: none;
+  }
+
+  .top-bar-status .bar-pipe {
     display: none;
   }
 }
-

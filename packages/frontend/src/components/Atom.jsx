@@ -56,9 +56,19 @@ export default function Atom({
   isListening = false,
   isThinking = false,
   voiceLevelRef,
+  nodeAnchorRef,
   onClick,
 }) {
   const containerRef = useRef(null)
+  // Viewport coordinates of the orbiting node the retrieval data-link attaches to (DataLink.jsx),
+  // written from the frame loop. A ref, not state, for the same reason voiceLevelRef is one: this
+  // updates 60 times a second and must never re-render React.
+  const anchorVecRef = useRef(new THREE.Vector3())
+  // The atom container's last known viewport rect. Cached rather than measured in the loop -
+  // getBoundingClientRect() forces a synchronous layout, and doing that every frame to position a
+  // decorative line would tax exactly the older tablets isLikelyOlderTablet() exists to protect.
+  // It only changes when the box does, which the ResizeObserver below already knows about.
+  const containerRectRef = useRef(null)
   const sceneRef = useRef(null)
   const cameraRef = useRef(null)
   const rendererRef = useRef(null)
@@ -179,6 +189,7 @@ export default function Atom({
       camera.position.z = Math.max(BASE_CAMERA_Z, (R * Math.sqrt(1 + k * k)) / k)
       camera.updateProjectionMatrix()
       renderer.setSize(width, height)
+      containerRectRef.current = containerRef.current.getBoundingClientRect()
     }
     handleResize()
 
@@ -226,6 +237,7 @@ export default function Atom({
     let animationId
     let rotationAngle = 0
     let lastFrameTime = 0
+    let lastRectAt = 0
 
     const animate = (time) => {
       animationId = requestAnimationFrame(animate)
@@ -294,6 +306,37 @@ export default function Atom({
         }
         group.rotation.copy(ring.rotation)
       })
+
+      // Publish where one orbiting node currently is on screen, so the retrieval data-link can
+      // physically attach to it (DataLink.jsx) instead of pointing at the atom's bounding box and
+      // hoping. The outermost ring's first electron is the chosen node: it is the one with the
+      // widest sweep, so the link visibly tracks something moving rather than sitting still.
+      //
+      // Only the projection runs here - three multiplies and a divide against a cached rect. The
+      // consumer samples this ref on its own slow schedule; nothing downstream of it runs at
+      // frame rate.
+      if (nodeAnchorRef) {
+        // The ResizeObserver catches every SIZE change, but the atom's box also MOVES without
+        // resizing - 6.F slides it aside within the stage when a response opens, which is
+        // precisely when the data-link is on screen. Re-measuring 4x a second covers that
+        // without putting a layout read in the frame path.
+        if (time - lastRectAt > 250 && containerRef.current) {
+          containerRectRef.current = containerRef.current.getBoundingClientRect()
+          lastRectAt = time
+        }
+        const outerGroup = orbitsRef.current[orbitsRef.current.length - 1]
+        const node = outerGroup?.children?.[0]
+        const rect = containerRectRef.current
+        if (node && rect) {
+          const v = anchorVecRef.current
+          node.getWorldPosition(v)
+          v.project(cameraRef.current)
+          nodeAnchorRef.current = {
+            x: rect.left + ((v.x + 1) / 2) * rect.width,
+            y: rect.top + ((1 - v.y) / 2) * rect.height,
+          }
+        }
+      }
 
       rotationAngle += 0.01
       rendererRef.current.render(sceneRef.current, cameraRef.current)

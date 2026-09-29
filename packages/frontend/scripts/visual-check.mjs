@@ -112,6 +112,21 @@ const baseState = {
   recognition: { active: false, person_id: '', role: '', svg: '', ascii_art: '', recognized_at: '' },
 }
 
+// Inline rather than a checked-in fixture file: the visual-context scene needs *an* image to
+// frame, and what it depicts is irrelevant - the thing under test is the frame, the crop marks,
+// the caption and the data-link, not the picture. A data: URI also can't fail to load, so this
+// scene can never go red because a fixture path moved. 4:3, mid-grey, so the grayscale filter and
+// the 1px frame are both visible against it.
+const PLACEHOLDER_IMAGE =
+  'data:image/svg+xml;base64,' +
+  Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360">' +
+      '<rect width="480" height="360" fill="#8a8a8a"/>' +
+      '<rect x="40" y="40" width="400" height="280" fill="none" stroke="#3a3a3a" stroke-width="3"/>' +
+      '<circle cx="240" cy="180" r="70" fill="none" stroke="#3a3a3a" stroke-width="3"/>' +
+      '</svg>'
+  ).toString('base64')
+
 const exchange = [
   { speaker: 'user:zion', text: 'what did we decide about the kitchen lighting?', timestamp: '2026-07-14T10:00:01' },
   { speaker: 'memory', text: 'recalled: Kitchen lighting decision', timestamp: '2026-07-14T10:00:02' },
@@ -150,6 +165,24 @@ const SCENES = {
     description: 'Reply landed: atom slid aside, karaoke line + recall note beside it.',
     state: { ...baseState, transcription: { active: false, current_text: '', history: exchange } },
     activity,
+  },
+  'visual-context': {
+    description: 'Recall with a picture: framed visual-context block + data-link to the atom.',
+    state: { ...baseState, transcription: { active: false, current_text: '', history: exchange } },
+    activity,
+    // Drives a real chat turn, because the picture is NOT part of the polled state - it comes
+    // back on the /api/chat response and lives in App.jsx's `lastImage` (deliberately per-device;
+    // see its comment). Setting `state` alone would show the text and never the image, which is
+    // exactly the scene this is here to photograph.
+    chatReply: {
+      reply: 'The Lyra Vance piece is in the Neo-Atrium. Your visit is booked for next week.',
+      image: {
+        url: PLACEHOLDER_IMAGE,
+        title: 'The Lyra Vance Installation, Neo-Atrium Rotunda',
+        source: 'memory-mcp-server',
+        source_url: 'https://example.invalid/lyra-vance',
+      },
+    },
   },
   thinking: {
     description: 'Turn in flight: atom aside, neuron field firing in the opened space.',
@@ -286,7 +319,19 @@ async function main() {
     // reports drift and every screenshot grows a STALE flag. `scene.health` overrides it for the
     // one scene that deliberately exercises the drift path.
     await page.route('**/api/health*', (r) =>
-      json(r, scene.health || { status: 'ok', version: pkgVersion, build: buildStamp, connected_servers: [] })
+      json(
+        r,
+        scene.health || {
+          status: 'ok',
+          version: pkgVersion,
+          build: buildStamp,
+          connected_servers: [],
+          // Fixed, not Date.now()-derived: the toolbar's UPTIME readout has to appear in the
+          // screenshots (it is absent, by design, until /api/health has answered once - see
+          // useUptime.js), and a value that changed per run would make every PNG differ.
+          uptime_seconds: 302400,
+        }
+      )
     )
     await page.route('**/api/state*', (r) => json(r, scene.state))
     await page.route('**/api/approvals*', (r) => json(r, scene.approvals || []))
@@ -372,6 +417,10 @@ async function main() {
       })
     }
 
+    if (scene.chatReply) {
+      await page.route('**/api/chat*', (r) => json(r, scene.chatReply))
+    }
+
     await page.emulateMedia({ colorScheme: THEME })
     await page.goto(origin, { waitUntil: 'networkidle' })
     await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), THEME)
@@ -389,6 +438,20 @@ async function main() {
 
     if (scene.open === 'drawer') {
       await page.getByRole('button', { name: /DEVICES/i }).first().click()
+    }
+
+    if (name === 'visual-context') {
+      // Same path the thinking scene uses to reach the input, but the turn actually completes -
+      // so App.jsx receives the mocked reply's `image` and the framed block mounts.
+      await page.locator('.atom-container').dblclick()
+      await page.locator('.manual-invoke-input').fill('what did we decide about the Lyra Vance piece?')
+      await page.locator('.manual-invoke-input').press('Enter')
+      await page.waitForSelector('.visual-context-frame img', { timeout: 5000 })
+      // The data-link samples the atom's orbiting node on an interval and draws nothing until
+      // both ends resolve (DataLink.jsx) - wait for a strand rather than a fixed sleep, so this
+      // scene fails loudly if the link ever stops attaching instead of quietly photographing a
+      // missing one.
+      await page.waitForSelector('.data-link path', { timeout: 5000 })
     }
 
     if (name === 'thinking') {

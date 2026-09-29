@@ -32,6 +32,14 @@ export default function DevicesPanel({ token }) {
     await api.unblockDevice(token, deviceId)
     refresh()
   }
+  const remove = async (deviceId) => {
+    // Unlike block, this discards the row and any minted token rather than refusing it - worth
+    // a confirm since it's the one device action here that can't be undone with another click
+    // (a removed device has to come back online and be re-approved from scratch).
+    if (!window.confirm(`Remove "${deviceId}"? It can register again if it comes back online, but will need re-approving.`)) return
+    await api.removeDevice(token, deviceId)
+    refresh()
+  }
 
   return (
     <section className="panel">
@@ -79,6 +87,9 @@ export default function DevicesPanel({ token }) {
                     Block
                   </button>
                 )}
+                <button type="button" onClick={() => remove(d.device_id)}>
+                  Remove
+                </button>
               </td>
             </tr>
           ))}

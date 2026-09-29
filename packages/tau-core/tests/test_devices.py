@@ -115,6 +115,46 @@ def test_as_dict_never_exposes_token_hash():
     assert data["status"] == "approved"
 
 
+def test_remove_deletes_device():
+    reg = DeviceRegistry()
+    reg.touch("dev1")
+    reg.approve("dev1")
+    assert reg.remove("dev1") is True
+    assert reg.get("dev1") is None
+
+
+def test_remove_unknown_device_returns_false():
+    reg = DeviceRegistry()
+    assert reg.remove("never-seen") is False
+
+
+def test_removed_device_starts_over_as_pending_if_it_returns():
+    """The whole point of remove() over block(): a device that comes back is a fresh, informed
+    approval decision, not a token nobody remembers granting."""
+    reg = DeviceRegistry()
+    reg.touch("dev1")
+    reg.approve("dev1")
+    reg.remove("dev1")
+    reg.touch("dev1")  # re-announces itself
+    dev1 = reg.get("dev1")
+    assert dev1.status == "pending"
+    assert dev1.token_hash is None
+
+
+def test_remove_persists_and_does_not_come_back_after_restart(tmp_path):
+    """The safety property that makes remove() worth having over block(): an approved device's
+    token must not silently reappear from a stale on-disk snapshot after a restart."""
+    store_path = tmp_path / "devices.json"
+    reg1 = DeviceRegistry(store_path=store_path)
+    reg1.touch("dev1")
+    token = reg1.approve("dev1")
+    assert reg1.remove("dev1") is True
+
+    reg2 = DeviceRegistry(store_path=store_path)
+    assert reg2.get("dev1") is None
+    assert reg2.verify_token("dev1", token) is False
+
+
 def test_reapproving_a_blocked_device_cannot_get_a_fresh_token_by_reregistering():
     """A blocked device re-registering under the same id must not silently regain trust just by
     touching the registry again - only an explicit unblock (or a fresh approve) changes that,

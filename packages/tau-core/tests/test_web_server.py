@@ -84,6 +84,28 @@ async def test_health_reports_version_and_build(settings, monkeypatch):
         assert isinstance(body["version"], str) and body["version"]
 
 
+async def test_health_reports_uptime_seconds(settings):
+    """The toolbar's UPTIME readout is driven entirely by this field (useUptime.js), and it is
+    designed to render NOTHING rather than a zero when the field is absent - so a missing or
+    non-numeric value here fails silently on the kiosk, with no error and no readout. It has to be
+    a real number, not merely present."""
+    registry = build_registry()
+    async with MCPClientManager(registry) as manager:
+        await manager.connect_all()
+        host = TauCoreHost(manager, settings=settings)
+        app = create_app(settings=settings, host=host)
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            first = (await client.get("/api/health")).json()
+            second = (await client.get("/api/health")).json()
+
+    assert isinstance(first["uptime_seconds"], (int, float))
+    assert first["uptime_seconds"] >= 0
+    # Monotonic, never backwards - the whole reason it is measured off time.monotonic() rather
+    # than a wall clock that NTP or DST can step.
+    assert second["uptime_seconds"] >= first["uptime_seconds"]
+
+
 async def test_health_reports_device_token_enforcement_state():
     """Phase 27.A: the open-by-default state used to be silent - /api/health now says so
     directly, which is what drives StatusFooter.jsx's UNAUTHENTICATED tag."""

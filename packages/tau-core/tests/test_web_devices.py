@@ -243,6 +243,35 @@ async def test_device_token_rejected_when_wrong_and_enforcement_on():
             assert r.status_code == 403
 
 
+async def test_removed_devices_old_token_is_rejected_under_enforcement():
+    """The decisive proof that remove() is more than block(): an approved device's token must
+    stop authenticating, not just get refused by a flag that admin route also flips. Drives the
+    registry directly (same "approve out of band" pattern the tests above use) rather than
+    through the admin-remove HTTP route, since this file is about the enforcement chokepoint
+    itself, not the admin surface - test_web_admin_hardening.py covers that route."""
+    settings = make_settings(require_device_token=True)
+    registry = DeviceRegistry(store_path=settings.device_store_path)
+    registry.touch("devA")
+    token = registry.approve("devA")
+    assert registry.remove("devA") is True
+
+    async with MCPClientManager(build_registry()) as manager:
+        await manager.connect_all()
+        host = TauCoreHost(manager, settings=settings)
+        app = create_app(settings=settings, host=host)
+        async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            # The old, once-valid token no longer authenticates a device by this id.
+            r = await client.get(
+                "/api/state", headers={"X-Tau-Device-Id": "devA", "X-Tau-Device-Token": token}
+            )
+            assert r.status_code == 403
+
+            # And the id itself is back to square one - pending, no token accepted at all.
+            listing = await client.get("/api/devices", headers={"X-Tau-Device-Id": "devA"})
+            devA = next(d for d in listing.json() if d["device_id"] == "devA")
+            assert devA["status"] == "pending"
+
+
 async def test_anonymous_caller_unaffected_by_device_token_enforcement():
     settings = make_settings(require_device_token=True)
     async with MCPClientManager(build_registry()) as manager:

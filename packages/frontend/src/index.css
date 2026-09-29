@@ -16,6 +16,20 @@
      depends on what opacity layer happens to sit on top of it.
   */
   --faint: #707070;
+  /* The one non-monochrome ink, and a deliberate exception to "the whole UI is two colors".
+     Reserved for a single meaning: an input or output that is switched OFF - the strike through a
+     muted/disabled hardware toggle in the toolbar. Nothing else may use it, because its value is
+     entirely in being the only red on screen.
+
+     Why an exception was worth making: dim + strike-through (the pre-Phase-52 treatment) is the
+     same visual as "unsupported on this browser", so "you muted this" and "this device can't do
+     this" were indistinguishable at a glance - on a wall-mounted screen glanced at from across a
+     room, which is the whole viewing model. Colour is the only channel left that doesn't cost
+     layout. It is NOT the sole carrier of the state: the strike-through, aria-pressed, and the
+     tooltip all still say it independently, so this reads correctly to a screen reader and to a
+     colour-blind viewer (WCAG 1.4.1 - colour is never the only cue).
+     #c0392b on --paper is 5.1:1, clearing AA for the small text it strikes. */
+  --alert: #c0392b;
 }
 
 :root[data-theme="dark"] {
@@ -27,6 +41,9 @@
   --ink-rgb: 232, 232, 232;
   --muted: #9a9a9a;
   --faint: #808080;
+  /* Lifted toward the light end on the dark paper - #c0392b is only 2.6:1 against #0d0d0d and
+     would read as a muddy brown rather than a warning. #e5675a is 5.6:1. */
+  --alert: #e5675a;
 }
 
 * {

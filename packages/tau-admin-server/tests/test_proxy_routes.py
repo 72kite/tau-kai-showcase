@@ -32,6 +32,10 @@ class FakeProxy:
         self.calls.append(("unblock_device", device_id))
         return {"blocked": False}
 
+    async def remove_device(self, device_id):
+        self.calls.append(("remove_device", device_id))
+        return {"device_id": device_id, "removed": True}
+
     async def system_snapshot(self):
         self.calls.append(("system_snapshot",))
         return {"current_model": "qwen2.5:7b-instruct"}
@@ -176,9 +180,14 @@ async def test_devices_roundtrip(tmp_path):
         unblocked = await client.post("/api/admin/devices/kids-tablet/unblock", headers=headers)
         assert unblocked.json()["blocked"] is False
 
+        removed = await client.delete("/api/admin/devices/kids-tablet", headers=headers)
+        assert removed.status_code == 200
+        assert removed.json() == {"device_id": "kids-tablet", "removed": True}
+
     assert ("approve_device", "kids-tablet") in proxy.calls
     assert ("block_device", "kids-tablet") in proxy.calls
     assert ("unblock_device", "kids-tablet") in proxy.calls
+    assert ("remove_device", "kids-tablet") in proxy.calls
 
 
 async def test_snapshots_roundtrip(tmp_path):

@@ -1,0 +1,26 @@
+/* The retrieval data-link bundle. Fixed over the whole viewport because its two endpoints live in
+   different parts of the tree (the atom's canvas and the response surface's image frame) and are
+   measured in viewport coordinates - see DataLink.jsx. */
+
+.data-link {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  /* Purely decorative and drawn over the stage: it must never eat a tap meant for the atom or the
+     image beneath it. */
+  pointer-events: none;
+  /* Under the toolbar, the approval queue and the recognition card - all of which are things a
+     person has to act on - and over the stage it decorates. */
+  z-index: 2;
+}
+
+.data-link path {
+  fill: none;
+  stroke: var(--faint);
+  /* index.css sets a global 2px stroke on every svg path. These are meant to be hairlines: the
+     bundle reads as fine parallel data lines, and at 2px seven of them become a solid band. */
+  stroke-width: 0.75 !important;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.75;
+}

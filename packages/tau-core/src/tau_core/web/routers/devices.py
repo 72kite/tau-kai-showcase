@@ -74,6 +74,26 @@ def build_devices_router(deps: SharedDeps) -> APIRouter:
             raise HTTPException(status_code=404, detail=f"Unknown device '{device_id}'")
         return device.as_dict()
 
+    @router.delete("/api/admin/devices/{device_id}")
+    async def remove_device(
+        device_id: str,
+        x_tau_voice_token: str | None = Header(default=None),
+        x_tau_admin_service_token: str | None = Header(default=None),
+        x_tau_device_id: str | None = Header(default=None),
+        x_tau_device_token: str | None = Header(default=None),
+    ) -> dict:
+        """Forget a device (admin portal). Unlike block, this discards the row and any minted
+        token rather than just refusing it - the right call for an entry the admin doesn't
+        recognise, since a token nobody can account for is a live credential either way. The
+        device is free to register again if it comes back online (register() is open by design,
+        same as any never-seen id) and starts over at "pending" - re-approving it is then a
+        deliberate, informed choice instead of a stale grant nobody remembers making."""
+        _require_admin(deps, x_tau_voice_token, x_tau_admin_service_token)
+        _device_id(deps, x_tau_device_id, x_tau_device_token)
+        if not devices.remove(device_id):
+            raise HTTPException(status_code=404, detail=f"Unknown device '{device_id}'")
+        return {"device_id": device_id, "removed": True}
+
     @router.post("/api/admin/devices/{device_id}/approve")
     async def approve_device(
         device_id: str,
